@@ -1,0 +1,51 @@
+# Expo / Metro kalıntıları ve önbellekleri
+.expo/*
+.expo-shared/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Az önce hataya sebep olan yerel paket önbellekleri
+node_modules/
+.cache/
+
+# Android Studio ve yerel derleme (Native Build) dosyaları
+android/
+ios/
+*.iml
+.idea/
+.gradle/
+local.properties
+*.keystore
+*.jks
+*.p12
+*.key
+*.pem
+
+# Windows işletim sistemi kalıntıları
+Thumbs.db
+db.properties
+Desktop.ini
+ehthumbs.db
+
+# VS Code ve editör ayarları (Kişisel tema/eklenti geçmişi gitmesin)
+.vscode/
+.history/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Çevre değişkenleri ve gizli anahtarlar (API anahtarları vb.)
+.env
+.env.local
+.env.*.local
+.env.development
+.env.production
+
+# Geçici dosyalar ve loglar
+logs
+*.log
+xcode_backend.sh
