@@ -15,7 +15,7 @@ export default function HomeHeader() {
 
     return (
         // pt-12 yerine sadece normal dikey padding (py-4) bıraktık, üst boşluğu Expo kendisi yönetecek
-        <View className="bg-[#0F172A] py-4 px-5 border-b border-slate-800/50">
+        <View className="bg-[#0F172A] py-4 px-5 border-b border-slate-400/50">
             {/* Üst Satır: Logo ve Bildirim Çanı */}
             <View className="flex-row items-center">
                 <View className="flex-row items-center w-9 h-9">
