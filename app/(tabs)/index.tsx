@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 
 import { Text, View } from '@/components/Themed';
 import CalorieWidget from '@/components/CaloriWidget';
-import RecentMealCard from '@/components/MealCard';
+import RecentMealCard from '@/components/LastlyMealCard';
 
 export default function TabOneScreen() {
   const [meals, setMeals] = useState<any[]>([]);

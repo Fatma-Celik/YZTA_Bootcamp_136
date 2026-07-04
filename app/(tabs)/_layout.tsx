@@ -58,6 +58,7 @@ export default function TabLayout() {
         name="recipes"
         options={{
           title: 'Tab Recipes',
+          headerShown: false,
           tabBarIcon: ({ color }) => (
             <SymbolView
               name={{
@@ -74,6 +75,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="scanner"
         options={{
+          headerShown: false,
           title: 'Tab Scanner',
           tabBarIcon: ({ color }) => (
             <SymbolView
