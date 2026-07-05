@@ -4,17 +4,17 @@
 
 ## **Takım Logosu**
 
-![Logo]()
+![Takım Logosu](Project%20Files/General%20Docs/team_logo_dark.jpeg)
 
 ## Takım Elemanları
 
-| <div align="center">Photo</div> | <div align="center">Name</div> | <div align="center">Title</div> | <div align="center">Linkedin</div> | <div align="center">GitHub</div> |
-| :-----------: | :---------- | :---------- | :----------: | :----------: |
-| <img src="https://github.com/user-attachments/assets/2481784c-79c0-4235-bff3-a1d4c660e4d8" width="100" height="100" style="object-fit: cover;"> | Ömer Faruk Gülşen | Scrum Master | [![linkedin](https://github.com/user-attachments/assets/3baa645a-33bc-4786-8327-cb0f92356f0a)](https://www.linkedin.com/in/omrfrkgulsen/) | [![github](https://img.shields.io/badge/GitHub-100000?style=flat&logo=github&logoColor=white)](https://github.com/omercoder853) |
-| <img src="https://github.com/user-attachments/assets/fb7d341e-3647-46bd-b330-8b39da59fbe3" width="100" height="100" style="object-fit: cover;"> | Yüsra Yalavuz | Product Owner | [![linkedin](https://github.com/user-attachments/assets/3baa645a-33bc-4786-8327-cb0f92356f0a)](https://www.linkedin.com/in/yusra-yalavuz/) | [![github](https://img.shields.io/badge/GitHub-100000?style=flat&logo=github&logoColor=white)](https://github.com/yusrayalavuz) |
-| <img src="https://github.com/user-attachments/assets/0c2d8f15-8ca7-40d4-a075-f13e8ee6886e" width="100" height="100" style="object-fit: cover;"> | Fatma Çelik | Developer | [![linkedin](https://github.com/user-attachments/assets/3baa645a-33bc-4786-8327-cb0f92356f0a)](https://www.linkedin.com/in/fatmaacelik/) | [![github](https://img.shields.io/badge/GitHub-100000?style=flat&logo=github&logoColor=white)](https://github.com/Fatma-Celik) |
-| <img src="https://github.com/user-attachments/assets/a1edd213-f5f3-4f66-85c8-2ef4d6b76ae3" width="100" height="100" style="object-fit: cover;"> | Demir Demirkaya | Developer | [![linkedin](https://github.com/user-attachments/assets/3baa645a-33bc-4786-8327-cb0f92356f0a)](https://www.linkedin.com/in/demirkan-demirkaya/) | [![github](https://img.shields.io/badge/GitHub-100000?style=flat&logo=github&logoColor=white)](https://github.com/demir-d) |
-| <img src="https://github.com/user-attachments/assets/b8fd70b9-9fd1-45f7-8fb1-9f116baf059c" width="100" height="100" style="object-fit: cover;"> | Seyfi Berk Yılmaz | Developer | [![linkedin](https://github.com/user-attachments/assets/3baa645a-33bc-4786-8327-cb0f92356f0a)](https://www.linkedin.com/in/seyfi-berk-y%C4%B1lmaz-1263081a1/) | [![github](https://img.shields.io/badge/GitHub-100000?style=flat&logo=github&logoColor=white)](https://github.com/demir-d) |
+|                                                         <div align="center">Photo</div>                                                         | <div align="center">Name</div> | <div align="center">Title</div> |                                                              <div align="center">Linkedin</div>                                                               |                                                <div align="center">GitHub</div>                                                 |
+| :---------------------------------------------------------------------------------------------------------------------------------------------: | :----------------------------- | :------------------------------ | :-----------------------------------------------------------------------------------------------------------------------------------------------------------: | :-----------------------------------------------------------------------------------------------------------------------------: |
+| <img src="https://github.com/user-attachments/assets/2481784c-79c0-4235-bff3-a1d4c660e4d8" width="100" height="100" style="object-fit: cover;"> | Ömer Faruk Gülşen              | Scrum Master                    |           [![linkedin](https://github.com/user-attachments/assets/3baa645a-33bc-4786-8327-cb0f92356f0a)](https://www.linkedin.com/in/omrfrkgulsen/)           | [![github](https://img.shields.io/badge/GitHub-100000?style=flat&logo=github&logoColor=white)](https://github.com/omercoder853) |
+| <img src="https://github.com/user-attachments/assets/fb7d341e-3647-46bd-b330-8b39da59fbe3" width="100" height="100" style="object-fit: cover;"> | Yüsra Yalavuz                  | Product Owner                   |          [![linkedin](https://github.com/user-attachments/assets/3baa645a-33bc-4786-8327-cb0f92356f0a)](https://www.linkedin.com/in/yusra-yalavuz/)           | [![github](https://img.shields.io/badge/GitHub-100000?style=flat&logo=github&logoColor=white)](https://github.com/yusrayalavuz) |
+| <img src="https://github.com/user-attachments/assets/0c2d8f15-8ca7-40d4-a075-f13e8ee6886e" width="100" height="100" style="object-fit: cover;"> | Fatma Çelik                    | Developer                       |           [![linkedin](https://github.com/user-attachments/assets/3baa645a-33bc-4786-8327-cb0f92356f0a)](https://www.linkedin.com/in/fatmaacelik/)            | [![github](https://img.shields.io/badge/GitHub-100000?style=flat&logo=github&logoColor=white)](https://github.com/Fatma-Celik)  |
+| <img src="https://github.com/user-attachments/assets/a1edd213-f5f3-4f66-85c8-2ef4d6b76ae3" width="100" height="100" style="object-fit: cover;"> | Demir Demirkaya                | Developer                       |        [![linkedin](https://github.com/user-attachments/assets/3baa645a-33bc-4786-8327-cb0f92356f0a)](https://www.linkedin.com/in/demirkan-demirkaya/)        |   [![github](https://img.shields.io/badge/GitHub-100000?style=flat&logo=github&logoColor=white)](https://github.com/demir-d)    |
+| <img src="https://github.com/user-attachments/assets/b8fd70b9-9fd1-45f7-8fb1-9f116baf059c" width="100" height="100" style="object-fit: cover;"> | Seyfi Berk Yılmaz              | Developer                       | [![linkedin](https://github.com/user-attachments/assets/3baa645a-33bc-4786-8327-cb0f92356f0a)](https://www.linkedin.com/in/seyfi-berk-y%C4%B1lmaz-1263081a1/) |   [![github](https://img.shields.io/badge/GitHub-100000?style=flat&logo=github&logoColor=white)](https://github.com/demir-d)    |
 
 ## Uygulama İsmi
 
@@ -22,15 +22,17 @@
 
 ## Uygulama Logosu
 
-![Nexbite Logo](Project%20Files/General_Docs/Project_logo_dark.jpeg)
+![Nexbite Logo](Project%20Files/General%20Docs/Project_logo_light.jpeg)
 
 ## Uygulama Açıklaması
 
 **Nexbite**, evdeki gıda israfını azaltmayı ve kullanıcıların kişiselleştirilmiş sağlık/diyet hedeflerine ulaşmasını kolaylaştırmayı amaçlayan yapay zeka destekli bir mutfak asistanıdır. Kullanıcılar mutfaklarındaki malzemeleri metin olarak girerek veya fotoğrafını çekerek sisteme yükler. Platform bu malzemeleri analiz ederek gıda israfını önleyecek en uygun yemek tariflerini sunarken, aynı zamanda kullanıcının sağlık hedeflerine (kilo verme, kas kütlesi artırma, alerjen hassasiyetleri veya diyet programları) uygun makro/kalori hesaplamalarını gerçekleştiren entegre bir diyetisyen modülü barındırır.
 
-## Proje Hikayesi (User Persona & Vision)
+## Proje Hikayesi
 
 - Günümüzün yoğun temposunda sağlıklı beslenmeye çalışan ve makro takibi yapan bireyler, her gün "Bugün ne pişirsem?" ve "Bu yemeğin içinde kaç kalori/makro var?" sorularıyla karşı karşıya kalmaktadır. Projemiz, tam da bu noktada devreye girerek mutfaktaki belirsizliği ortadan kaldırıyor. Kullanıcı buzdolabının kapağını açıp fotoğrafını çektiğinde, sistem arkadaki malzemeleri tanır ve saniyeler içinde kişiselleştirilmiş yemek önerileri sunar. Dışarıda veya evde yenen bir yemeğin fotoğrafı çekildiğinde ise gelişmiş görüntü işleme modellerimiz yemeği analiz ederek makro besin değerlerini çıkarır. Eksik malzemeler otomatik olarak optimize edilmiş bir market listesine dönüşür. Bu sayede kullanıcılar, hem bütçelerini hem de formlarını en akıllı şekilde yönetirler.
+
+📄 **Kullanıcı Personaları:** [Persona Dosyasını Görüntüle](Project%20Files/General%20Docs/Persona%20Dosyası.pdf)
 
 ## Uygulama Özellikleri
 
@@ -53,16 +55,16 @@
 
 ---
 
-## Teknoloji Yığını
+## Kullanılan Teknolojiler
 
-| Katman | Teknoloji |
-|--------|-----------|
-| Backend | FastAPI (Python) |
-| AI & LLM | Gemini 2.5 Flash |
-| Görsel Tanıma | Gemini Vision API |
-| AI Agent + Hafıza | LangChain + ChromaDB (Sprint 3) |
-| Veritabanı | Supabase (PostgreSQL) |
-| Frontend | Next.js + TailwindCSS (Sprint 2) |
+| Katman            | Teknoloji                        |
+| ----------------- | -------------------------------- |
+| Backend           | FastAPI (Python)                 |
+| AI & LLM          | Gemini 2.5 Flash                 |
+| Görsel Tanıma     | Gemini Vision API                |
+| AI Agent + Hafıza | LangChain + ChromaDB (Sprint 3)  |
+| Veritabanı        | Supabase (PostgreSQL)            |
+| Frontend          | Next.js + TailwindCSS (Sprint 2) |
 
 ---
 
@@ -91,16 +93,16 @@
 
 Proje boyunca tamamlanması planlanan toplam **300 puanlık** iş yükü 3 sprint'e bölünmüştür.
 
-| Görev | Puan |
-|-------|------|
-| GitHub repo kurulumu ve branch yapısı | 10 |
-| README hazırlama ve takım bilgileri | 10 |
-| Asana proje yönetim kurulumu | 10 |
-| Supabase veritabanı kurulumu | 10 |
-| FastAPI backend iskeleti | 20 |
-| Gemini 2.5 Flash AI entegrasyonu | 30 |
-| Persona ve logo çalışmaları | 10 |
-| **Toplam** | **100** |
+| Görev                                 | Puan    |
+| ------------------------------------- | ------- |
+| GitHub repo kurulumu ve branch yapısı | 10      |
+| README hazırlama ve takım bilgileri   | 10      |
+| Asana proje yönetim kurulumu          | 10      |
+| Supabase veritabanı kurulumu          | 10      |
+| FastAPI backend iskeleti              | 20      |
+| Gemini 2.5 Flash AI entegrasyonu      | 30      |
+| Persona ve logo çalışmaları           | 10      |
+| **Toplam**                            | **100** |
 
 Sprint 2'de frontend geliştirme, Vision API entegrasyonu ve kullanıcı kimlik doğrulama (100 puan), Sprint 3'te AI Agent, hafıza sistemi ve final teslim (100 puan) planlanmaktadır.
 
