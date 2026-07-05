@@ -18,15 +18,15 @@
 
 ## Uygulama İsmi
 
-**SmartBite / FridgeChef (Veya Sizin Belirleyeceğiniz Bir İsim)**
+**NexBite**
 
 ## Uygulama Logosu
 
-![UygulamaLogo](https://github.com/user-attachments/assets/27a83c0e-7dca-4449-b97f-5a9332d5d96f)
+![Nexbite Logo](Project%20Files/General_Docs/Project_logo_dark.jpeg)
 
 ## Uygulama Açıklaması
 
-- **Akıllı Mutfak Asistanı**, evdeki gıda israfını azaltmayı ve kullanıcıların kişiselleştirilmiş sağlık/diyet hedeflerine ulaşmasını kolaylaştırmayı amaçlayan akıllı bir platformdur. Kullanıcılar mutfaklarındaki malzemeleri metin olarak girerek veya fotoğrafını çekerek sisteme yükler. Platform, bu malzemeleri analiz ederek gıda israfını önleyecek en uygun yemek tariflerini sunarken, aynı zamanda kullanıcının sağlık hedeflerine (kilo verme, kas kütlesi artırma, alerjen hassasiyetleri veya diyet programları) uygun makro/kalori hesaplamalarını gerçekleştiren entegre bir diyetisyen modülü barındırır.
+**Nexbite**, evdeki gıda israfını azaltmayı ve kullanıcıların kişiselleştirilmiş sağlık/diyet hedeflerine ulaşmasını kolaylaştırmayı amaçlayan yapay zeka destekli bir mutfak asistanıdır. Kullanıcılar mutfaklarındaki malzemeleri metin olarak girerek veya fotoğrafını çekerek sisteme yükler. Platform bu malzemeleri analiz ederek gıda israfını önleyecek en uygun yemek tariflerini sunarken, aynı zamanda kullanıcının sağlık hedeflerine (kilo verme, kas kütlesi artırma, alerjen hassasiyetleri veya diyet programları) uygun makro/kalori hesaplamalarını gerçekleştiren entegre bir diyetisyen modülü barındırır.
 
 ## Proje Hikayesi (User Persona & Vision)
 
@@ -34,22 +34,35 @@
 
 ## Uygulama Özellikleri
 
-- **AI Buzdolabı Analizi:** Görüntü işleme ile dolaptaki malzemelerin tespiti ve tarif üretimi.
-- **Fotoğraftan Makro Hesaplama:** Çekilen yemek fotoğraflarından protein, karbonhidrat, yağ ve kalori tahmini.
-- **Özelleştirilmiş Market Listesi:** Eksik malzemelerin ve haftalık beslenme planının otomatik listelenmesi.
-- **Kişisel Profil ve Hedef Takibi:** Kullanıcının kilo, boy ve fitness hedeflerine göre kalori optimizasyonu.
-- **Kullanıcı Dostu Arayüz:** Hızlı, dinamik ve akıcı bir mobil/web deneyimi.
+- 🔍 **AI Buzdolabı Analizi:** Görüntü işleme ile dolaptaki malzemelerin tespiti ve tarif üretimi
+- 📸 **Fotoğraftan Makro Hesaplama:** Çekilen yemek fotoğraflarından protein, karbonhidrat, yağ ve kalori tahmini
+- 🛒 **Özelleştirilmiş Market Listesi:** Eksik malzemelerin ve haftalık beslenme planının otomatik listelenmesi
+- 👤 **Kişisel Profil ve Hedef Takibi:** Kullanıcının kilo, boy ve fitness hedeflerine göre kalori optimizasyonu
+- 🤖 **AI Diyetisyen Modülü:** Kişiselleştirilmiş beslenme planı ve günlük makro takibi
 
 ## Hedef Kitle
 
-- Sporcular ve Fitness Tutkunları (Makro takibi yapanlar)
-- Yoğun Çalışanlar ve Öğrenciler (Pratik yemek hazırlamak isteyenler)
-- Mutfakta İsrafı Önlemek İsteyen Ev Ekonomisi Bilincindeki Kullanıcılar
-- Sağlıklı Yaşam ve Diyet Sürecindeki Bireyler
+- 💪 **Sporcular ve Fitness Tutkunları** — Makro takibi yapanlar
+- 📚 **Yoğun Çalışanlar ve Öğrenciler** — Pratik yemek hazırlamak isteyenler
+- 🏠 **Ev Ekonomisi Bilincindeki Kullanıcılar** — Mutfakta israfı önlemek isteyenler
+- 🥗 **Sağlıklı Yaşam ve Diyet Sürecindeki Bireyler**
 
 ## Ürün Backlog URL
 
-[YZTA Takım 136 Backlog Board Linki](BURAYA_LINK_EKLEYIN)
+[YZTA Takım 136 Backlog Board Linki](https://app.asana.com/1/1216179820190930/project/1216191028331122/list/1216191634744925)
+
+---
+
+## Teknoloji Yığını
+
+| Katman | Teknoloji |
+|--------|-----------|
+| Backend | FastAPI (Python) |
+| AI & LLM | Gemini 2.5 Flash |
+| Görsel Tanıma | Gemini Vision API |
+| AI Agent + Hafıza | LangChain + ChromaDB (Sprint 3) |
+| Veritabanı | Supabase (PostgreSQL) |
+| Frontend | Next.js + TailwindCSS (Sprint 2) |
 
 ---
 
@@ -59,37 +72,131 @@
 <summary><b>Sprint 1 (Detayları Görmek İçin Tıklayın)</b></summary>
 <br>
 
-- **Sprint Notları**: User Story'ler product backlog'ların içine yazılmıştır. Tasarım, AI model araştırmaları ve backend temel mimarisi bu sprintin odak noktasıdır.
+## Sprint Notları
 
-- **Sprint içinde tamamlanması tahmin edilen puan**: 100 Puan
+- Proje ismi **Nexbite** olarak belirlendi
+- Takım rolleri netleştirildi: Scrum Master, Product Owner, 3 Developer
+- İletişim kanalı olarak **WhatsApp** kullanılmasına karar verildi
+- Versiyon kontrolü için **GitHub**, proje yönetimi için **Asana** kullanılmasına karar verildi
+- Backend teknolojisi olarak **FastAPI (Python)** seçildi
+- AI modeli olarak **Gemini 2.5 Flash** kullanılmasına karar verildi
+- Veritabanı olarak **Supabase** kurulumu yapıldı
+- Daily Scrum toplantıları WhatsApp ve Slack üzerinden yürütüldü
 
-- **Puan tamamlama mantığı**: Proje boyunca tamamlanması gereken toplam 300 puanlık backlog bulunmaktadır. İlk sprintte temel veri modelleri, tasarım dili ve yapay zeka entegrasyon araştırmaları yer aldığı için 100 puan olarak planlanmıştır.
+## Sprint İçinde Tamamlanması Tahmin Edilen Puan
 
-- **Backlog Düzeni ve Görev Dağılımı**: 
-  - **Pembe (Yazılım/Backend):** Veritabanı mimarisinin kurulması, API entegrasyon temelleri (FastAPI/Django).
-  - **Mavi (Tasarım/UI-UX):** Mobil uygulama arayüz taslakları (Figma), logo ve kurumsal kimlik.
-  - **Açık Yeşil (AI/Görüntü İşleme):** Buzdolabı nesne tespiti (Object Detection) ve yemek tanıma modellerinin veri seti araştırması.
-  - **Koyu Yeşil (Genel):** Proje yönetimi, market analizi ve isterlerin belirlenmesi.
+**100 Puan**
 
-- **Daily Scrum**: Daily Scrum toplantılarının Discord ve WhatsApp üzerinden yapılması kararlaştırılmıştır.
-  - [Sprint 1 - Daily Scrum Chats (Imgur Linki)](BURAYA_IMGUR_LINKI_EKLEYIN)
+## Backlog Dağıtma Mantığı
 
-- **Sprint Board Update**: Sprint Board Ekran Görüntüsü:
-![Backlog 1](BURAYA_TRELLO_VEYA_MIRO_EKRAN_GORUNTUSU_LINKI)
+Proje boyunca tamamlanması planlanan toplam **300 puanlık** iş yükü 3 sprint'e bölünmüştür.
 
-### Ürün Durumu: Ekran Görüntüleri ve Tasarımlar
-  
-![Figma Tasarımları](BURAYA_FIGMA_VEYA_ARAYUZ_GORUNTUSU_LINKI)
-![Veritabanı Şeması](BURAYA_VERITABANI_DIYAGRAMI_LINKI)
-![AI Model Testleri](BURAYA_AI_NESNE_TANIM_TESTI_GORUNTUSU_LINKI)
+| Görev | Puan |
+|-------|------|
+| GitHub repo kurulumu ve branch yapısı | 10 |
+| README hazırlama ve takım bilgileri | 10 |
+| Asana proje yönetim kurulumu | 10 |
+| Supabase veritabanı kurulumu | 10 |
+| FastAPI backend iskeleti | 20 |
+| Gemini 2.5 Flash AI entegrasyonu | 30 |
+| Persona ve logo çalışmaları | 10 |
+| **Toplam** | **100** |
 
-- **Sprint Review**: 
-  - Ekip ilk sprint sonunda bir araya gelerek Figma üzerindeki arayüz tasarımlarını ve yapay zeka modelinin nesne tanıma başarı oranlarını inceledi. Projenin temel veri modelleri onaylandı. Bir sonraki sprintte mobil arayüzün kodlanmasına ve AI modelinin API'ye bağlanmasına karar verildi.
-  - **Katılımcılar:** Ömer Faruk Gülşen, Yüsra Yalavuz, Fatma Çelik, Demir Demirkaya.
+Sprint 2'de frontend geliştirme, Vision API entegrasyonu ve kullanıcı kimlik doğrulama (100 puan), Sprint 3'te AI Agent, hafıza sistemi ve final teslim (100 puan) planlanmaktadır.
 
-- **Sprint Retrospective:**
-  - Tasarım ve yapay zeka araştırma süreçleri paralel gittiği için koordinasyon başarılıydı.
-  - Gelecek sprintte kodlama yoğunluğu artacağı için backend ve frontend ekiplerinin günlük senkronizasyonunu artırma kararı alındı.
-  - Kullanılacak ücretsiz yemek tarifleri ve makro veri setleri (Dataset) başarıyla normalize edildi.
+## Daily Scrum
+
+Daily Scrum toplantıları WhatsApp grubu üzerinden yürütülmüştür.
+
+- [30 Haziran 2026 - Toplantı Notu](Project%20Files/Sprint1/Sprint1_Daily_Scrum/sprint1_30Haziran.md)
+- [1 Temmuz 2026 - Toplantı Notu](Project%20Files/Sprint1/Sprint1_Daily_Scrum/sprint1_1Temmuz.md)
+- [5 Temmuz 2026 - Toplantı Notu](Project%20Files/Sprint1/Sprint1_Daily_Scrum/sprint1_5Temmuz.md)
+
+## Sprint Board Update
+
+![Asana Sprint Board](Project%20Files/Sprint1/Sprint1_PM/asana_board.png)
+
+## Ürün Durumu
+
+### Uygulama Konsept Tasarımları
+
+![App 1](Project%20Files/Sprint1/Sprint1_App_ss/app1.jpeg)
+![App 2](Project%20Files/Sprint1/Sprint1_App_ss/app2.jpeg)
+![App 3](Project%20Files/Sprint1/Sprint1_App_ss/app3.jpeg)
+![App 4](Project%20Files/Sprint1/Sprint1_App_ss/app4.jpeg)
+![App 5](Project%20Files/Sprint1/Sprint1_App_ss/app5.jpeg)
+![App 6](Project%20Files/Sprint1/Sprint1_App_ss/app6.jpeg)
+
+### Çalışan API Endpoint'leri
+
+**Genel Görünüm:**
+![Swagger Overview](Project%20Files/Sprint1/Sprint1_Backend_ss/swagger_endpoints_overview.jpeg)
+
+**Tarif Önerisi (`/tarif-oner`):**
+![Tarif Önerisi Request](Project%20Files/Sprint1/Sprint1_Backend_ss/swagger_tarif_oner_request.jpeg)
+![Tarif Önerisi Response](Project%20Files/Sprint1/Sprint1_Backend_ss/swagger_tarif_oner_response.jpeg)
+
+**Makro Hesaplama (`/makro-hesapla`):**
+![Makro Hesaplama](Project%20Files/Sprint1/Sprint1_Backend_ss/swagger_makro_hesapla.jpeg)
+
+**Günlük Kalori (`/gunluk-kalori`):**
+![Günlük Kalori Request](Project%20Files/Sprint1/Sprint1_Backend_ss/swagger_gunluk_kalori_request.jpeg)
+![Günlük Kalori Response](Project%20Files/Sprint1/Sprint1_Backend_ss/swagger_gunluk_kalori_response.jpeg)
+
+**Market Listesi (`/market-listesi`):**
+![Market Listesi Request](Project%20Files/Sprint1/Sprint1_Backend_ss/swagger_market_listesi_request.jpeg)
+![Market Listesi Response](Project%20Files/Sprint1/Sprint1_Backend_ss/swagger_market_listesi_response.jpeg)
+
+## Sprint Review
+
+**Sprint 1 Tarihleri:** 19 Haziran – 5 Temmuz 2026
+
+**Katılımcılar:** Ömer Faruk Gülşen, Yüsra Yalavuz, Fatma Çelik, Demir Demirkaya, Seyfi Berk Yılmaz
+
+### Tamamlanan İşler ✅
+
+- Proje ismi (Nexbite) ve logo belirlendi
+- Takım rolleri ve iletişim kanalları netleştirildi
+- GitHub reposu kuruldu, branch yapısı oluşturuldu
+- README hazırlandı, takım bilgileri eklendi
+- Asana sprint board kuruldu, görevler girildi
+- Supabase veritabanı hesabı oluşturuldu
+- FastAPI backend iskeleti kuruldu
+- Gemini 2.5 Flash AI entegrasyonu tamamlandı
+- 4 çalışan endpoint geliştirildi ve test edildi: `/tarif-oner`, `/makro-hesapla`, `/gunluk-kalori`, `/market-listesi`
+- Kullanıcı personaları oluşturuldu (Emir, Zeynep, Mehmet, Elif)
+- Uygulama konsept tasarımları hazırlandı
+- Frontend taslağı oluşturuldu
+
+### Sprint 2'ye Taşınan İşler 🔄
+
+- Frontend (Next.js) geliştirme
+- Vision API entegrasyonu
+- Kullanıcı kimlik doğrulama sistemi
+- Besin değeri veritabanı entegrasyonu
+
+## Sprint Retrospective
+
+### Ne İyi Gitti? ✅
+
+- Gemini 2.5 Flash API entegrasyonu hızlı tamamlandı
+- Backend mimarisi temiz ve genişletilebilir kuruldu
+- Try-except blokları ile hata yönetimi sağlandı
+- Persona ve konsept tasarım çalışmaları güçlü çıktı
+- Ekip iletişimi WhatsApp üzerinden düzenli yürütüldü
+
+### Ne Kötü Gitti? ❌
+
+- OpenAI API kredi sorunu yaşandı, Gemini'ye geçilmek zorunda kalındı
+- .env dosyası yanlışlıkla commit'e dahil edildi
+- Git çakışmaları yaşandı, forced push nedeniyle bazı commitler kayboldu
+
+### Sprint 2'de Ne Değiştireceğiz? 🔧
+
+- Her ekip üyesi kendi branch'inde çalışacak
+- .env dosyası kesinlikle commit'lenmeyecek
+- `git push --force` kullanılmayacak
+- Frontend Sprint 2'nin ilk haftasında öncelikli olacak
+- Toplantı saatleri daha düzenli hale getirilecek
 
 </details>
