@@ -13,10 +13,10 @@ import {
   TouchableOpacity,
   ScrollView,
   Modal,
-  SafeAreaView,
   StatusBar,
   Keyboard,
 } from "react-native";
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from "@expo/vector-icons";
 import LottieView from "lottie-react-native";
 import RecipeCard, { type RecipeMeal } from "@/components/RecipeCard";

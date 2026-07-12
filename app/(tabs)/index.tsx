@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, ScrollView, View, Text, SafeAreaView, StatusBar } from 'react-native';
+import { StyleSheet, ScrollView, View, Text, StatusBar } from 'react-native';
 import LottieView from 'lottie-react-native';
 
 import CalorieWidget from '@/components/CaloriWidget';
@@ -37,11 +37,11 @@ export default function TabOneScreen() {
   }, []);
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#0F172A' }}>
+    <View style={{ flex: 1, backgroundColor: '#0F172A' }}>
       <StatusBar barStyle="light-content" />
       <ScrollView
         style={{ flex: 1, backgroundColor: '#0F172A' }}
-        contentContainerStyle={{ alignItems: 'center', paddingBottom: 24 }}
+        contentContainerStyle={{ alignItems: 'center', paddingBottom: 32, paddingTop: 8 }}
         showsVerticalScrollIndicator={false}
       >
         <CalorieWidget />
@@ -77,7 +77,7 @@ export default function TabOneScreen() {
           </View>
         )}
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 

@@ -112,6 +112,7 @@ export default function TabLayout() {
         name="profile"
         options={{
           title: 'Tab Profile',
+          headerShown: false,
           tabBarIcon: ({ color }) => (
             <SymbolView
               name={{
