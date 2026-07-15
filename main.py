@@ -1,10 +1,12 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File
 from pydantic import BaseModel
 from dotenv import load_dotenv
 import os
-
+import json
+import base64
 try:
     from google import genai
+    from google.genai import types
 except Exception:
     genai = None
 
@@ -58,8 +60,22 @@ def ai_yanit(prompt: str) -> str:
         return response.text
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"AI yanıtı oluşturulamadı: {str(e)}")
-
-
+    
+def ai_yanit_gorsel(prompt: str, image_bytes: bytes, mime_type: str = "image/jpeg") -> str:
+    if client is None:
+        raise HTTPException(status_code=503, detail="AI servisi şu an kullanılamıyor. GEMINI_API_KEY kontrol edin.")
+    try:
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=[
+                prompt,
+                types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
+            ]
+        )
+        return response.text
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Görsel analiz edilemedi: {str(e)}")
+    
 @app.get("/")
 async def root():
     return {"mesaj": "Akıllı Mutfak Asistanı API'ye hoş geldiniz!"}
@@ -223,3 +239,47 @@ Hedef: {giris.hedef}
 
     yanit = ai_yanit(prompt)
     return {"market_listesi": yanit}
+
+class MalzemeTaniRequest(BaseModel):
+    image: str  # Base64 string
+
+@app.post("/malzeme-tani")
+async def malzeme_tani(request: MalzemeTaniRequest):
+    try:
+        header, encoded = request.image.split(",", 1) if "," in request.image else ("", request.image)
+        image_bytes = base64.b64decode(encoded)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Geçersiz base64 formatı.")
+
+    prompt = """
+Sen bir mutfak asistanısın.
+Bu buzdolabı/mutfak fotoğrafındaki SADECE yemek yapımında kullanılabilecek
+yiyecek ve içecek malzemelerini tespit et.
+
+KURALLAR:
+- Mutfak eşyaları, aletler, dekoratif objeler, temizlik ürünleri DAHİL ETME
+- Her malzemeyi tek ve sade bir isimle yaz (örnek: "domates", "yumurta", "süt")
+- Miktarı yaklaşık olarak tahmin et (adet, gram, litre gibi uygun birimle)
+- Emin olmadığın öğeleri listeye ekleme
+- Aynı malzemeden birden fazla varsa TEK SATIRDA topla
+
+SADECE aşağıdaki JSON formatında yanıt ver, başka hiçbir açıklama ekleme:
+
+{
+  "malzemeler": [
+    {"ad": "domates", "miktar": "8-10 adet"}
+  ]
+}
+"""
+
+    yanit = ai_yanit_gorsel(prompt, image_bytes, "image/jpeg")
+
+    temiz_yanit = yanit.strip().replace("```json", "").replace("```", "").strip()
+
+    try:
+        parsed = json.loads(temiz_yanit)
+        malzeme_listesi = parsed.get("malzemeler", [])
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=500, detail="AI yanıtı işlenemedi, tekrar deneyin.")
+
+    return {"malzemeler": malzeme_listesi}
