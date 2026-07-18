@@ -4,20 +4,13 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
-  TextInput,
   Alert,
   StatusBar,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-
-// ─────────────── Statik Kullanıcı Verisi ───────────────
-const STATIC_USER = {
-  name: 'Ahmet Kaya',
-  email: 'ahmet.kaya@email.com',
-  phone: '+90 555 123 45 67',
-  memberSince: 'Ocak 2024',
-};
+import { useAuth } from '@/contexts/AuthContext';
 
 // ─────────────── Kırmızı Aksiyon Satırı ───────────────
 function DangerRow({
@@ -25,22 +18,26 @@ function DangerRow({
   label,
   description,
   onPress,
+  loading,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   description: string;
   onPress: () => void;
+  loading?: boolean;
 }) {
   return (
     <TouchableOpacity
       activeOpacity={0.75}
       onPress={onPress}
+      disabled={loading}
       style={{
         flexDirection: 'row',
         alignItems: 'center',
         paddingVertical: 14,
         paddingHorizontal: 16,
         gap: 14,
+        opacity: loading ? 0.6 : 1,
       }}
     >
       <View
@@ -53,7 +50,9 @@ function DangerRow({
           justifyContent: 'center',
         }}
       >
-        <Ionicons name={icon} size={21} color="#EF4444" />
+        {loading
+          ? <ActivityIndicator size="small" color="#EF4444" />
+          : <Ionicons name={icon} size={21} color="#EF4444" />}
       </View>
       <View style={{ flex: 1 }}>
         <Text style={{ color: '#EF4444', fontSize: 15, fontWeight: '700' }}>{label}</Text>
@@ -100,6 +99,24 @@ function FormField({
 
 // ─────────────── Ana Ekran ───────────────
 export default function AccountScreen() {
+  const { user, signOut } = useAuth();
+  const [signingOut, setSigningOut] = useState(false);
+
+  // Supabase user'dan gerçek verileri türet
+  const displayName =
+    (user?.user_metadata?.full_name as string) ||
+    user?.email?.split('@')[0] ||
+    'Kullanıcı';
+  const email = user?.email ?? '—';
+  const memberSince = user?.created_at
+    ? new Date(user.created_at).toLocaleDateString('tr-TR', { month: 'long', year: 'numeric' })
+    : '—';
+  const initials = displayName
+    .split(' ')
+    .map((p) => p[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
 
   const handleSignOut = () => {
     Alert.alert(
@@ -107,7 +124,15 @@ export default function AccountScreen() {
       'Oturumunuzu kapatmak istediğinize emin misiniz?',
       [
         { text: 'İptal', style: 'cancel' },
-        { text: 'Oturumu Kapat', style: 'destructive', onPress: () => {} },
+        {
+          text: 'Oturumu Kapat',
+          style: 'destructive',
+          onPress: async () => {
+            setSigningOut(true);
+            await signOut();
+            // AuthContext session'ı null yapınca root layout otomatik login'e yönlendirir
+          },
+        },
       ]
     );
   };
@@ -121,7 +146,12 @@ export default function AccountScreen() {
         {
           text: 'Evet, Hesabı Sil',
           style: 'destructive',
-          onPress: () => {},
+          onPress: () => {
+            Alert.alert(
+              'Bilgi',
+              'Hesap silme işlemi için destek ekibiyle iletişime geçin.'
+            );
+          },
         },
       ]
     );
@@ -160,44 +190,22 @@ export default function AccountScreen() {
               justifyContent: 'center',
             }}
           >
-            <Text style={{ color: '#fff', fontSize: 20, fontWeight: '900' }}>AK</Text>
+            <Text style={{ color: '#fff', fontSize: 20, fontWeight: '900' }}>{initials}</Text>
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={{ color: '#F1F5F9', fontSize: 16, fontWeight: '800' }}>{STATIC_USER.name}</Text>
+            <Text style={{ color: '#F1F5F9', fontSize: 16, fontWeight: '800' }}>{displayName}</Text>
             <Text style={{ color: '#64748B', fontSize: 12, fontWeight: '500', marginTop: 2 }}>
-              Üye: {STATIC_USER.memberSince}
+              Üye: {memberSince}
             </Text>
-          </View>
-          <View
-            style={{
-              backgroundColor: 'rgba(255, 107, 53, 0.12)',
-              borderRadius: 10,
-              paddingHorizontal: 10,
-              paddingVertical: 5,
-              borderWidth: 1,
-              borderColor: 'rgba(255, 107, 53, 0.3)',
-            }}
-          >
-            <Text style={{ color: '#FF6B35', fontSize: 11, fontWeight: '700' }}>Premium</Text>
           </View>
         </View>
 
         {/* ── Hesap Bilgileri ── */}
-        <View
-          style={{
-            marginHorizontal: 16,
-            marginBottom: 14,
-          }}
-        >
+        <View style={{ marginHorizontal: 16, marginBottom: 14 }}>
           <Text
             style={{
-              color: '#475569',
-              fontSize: 11,
-              fontWeight: '700',
-              letterSpacing: 1,
-              textTransform: 'uppercase',
-              marginBottom: 10,
-              marginLeft: 4,
+              color: '#475569', fontSize: 11, fontWeight: '700', letterSpacing: 1,
+              textTransform: 'uppercase', marginBottom: 10, marginLeft: 4,
             }}
           >
             Hesap Bilgileri
@@ -205,34 +213,21 @@ export default function AccountScreen() {
 
           <View
             style={{
-              backgroundColor: '#1E293B',
-              borderRadius: 18,
-              padding: 16,
-              borderWidth: 1,
-              borderColor: 'rgba(71, 85, 105, 0.3)',
+              backgroundColor: '#1E293B', borderRadius: 18, padding: 16,
+              borderWidth: 1, borderColor: 'rgba(71, 85, 105, 0.3)',
             }}
           >
-            <FormField label="Ad Soyad" value={STATIC_USER.name} icon="person-outline" />
-            <FormField label="E-posta" value={STATIC_USER.email} icon="mail-outline" />
-            <FormField label="Telefon" value={STATIC_USER.phone} icon="call-outline" />
+            <FormField label="Ad Soyad" value={displayName} icon="person-outline" />
+            <FormField label="E-posta" value={email} icon="mail-outline" />
 
-            {/* Düzenle Butonu */}
             <TouchableOpacity
               activeOpacity={0.8}
-              onPress={() =>
-                Alert.alert('Bilgi', 'Hesap düzenleme özelliği yakında aktif olacak.')
-              }
+              onPress={() => Alert.alert('Bilgi', 'Hesap düzenleme özelliği yakında aktif olacak.')}
               style={{
-                marginTop: 8,
-                backgroundColor: 'rgba(255, 107, 53, 0.12)',
-                borderRadius: 14,
-                paddingVertical: 13,
-                alignItems: 'center',
-                borderWidth: 1,
-                borderColor: 'rgba(255, 107, 53, 0.3)',
-                flexDirection: 'row',
-                justifyContent: 'center',
-                gap: 8,
+                marginTop: 8, backgroundColor: 'rgba(255, 107, 53, 0.12)', borderRadius: 14,
+                paddingVertical: 13, alignItems: 'center', borderWidth: 1,
+                borderColor: 'rgba(255, 107, 53, 0.3)', flexDirection: 'row',
+                justifyContent: 'center', gap: 8,
               }}
             >
               <Ionicons name="pencil-outline" size={16} color="#FF6B35" />
@@ -247,45 +242,31 @@ export default function AccountScreen() {
         <View style={{ marginHorizontal: 16, marginBottom: 14 }}>
           <Text
             style={{
-              color: '#475569',
-              fontSize: 11,
-              fontWeight: '700',
-              letterSpacing: 1,
-              textTransform: 'uppercase',
-              marginBottom: 6,
-              marginLeft: 4,
+              color: '#475569', fontSize: 11, fontWeight: '700', letterSpacing: 1,
+              textTransform: 'uppercase', marginBottom: 6, marginLeft: 4,
             }}
           >
             Güvenlik
           </Text>
           <View
             style={{
-              backgroundColor: '#1E293B',
-              borderRadius: 18,
-              borderWidth: 1,
-              borderColor: 'rgba(71, 85, 105, 0.3)',
-              overflow: 'hidden',
+              backgroundColor: '#1E293B', borderRadius: 18, borderWidth: 1,
+              borderColor: 'rgba(71, 85, 105, 0.3)', overflow: 'hidden',
             }}
           >
             <TouchableOpacity
               activeOpacity={0.75}
               onPress={() => Alert.alert('Bilgi', 'Şifre değiştirme özelliği yakında aktif olacak.')}
               style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                paddingVertical: 14,
-                paddingHorizontal: 16,
-                gap: 14,
+                flexDirection: 'row', alignItems: 'center', paddingVertical: 14,
+                paddingHorizontal: 16, gap: 14,
               }}
             >
               <View
                 style={{
-                  width: 44,
-                  height: 44,
-                  borderRadius: 13,
+                  width: 44, height: 44, borderRadius: 13,
                   backgroundColor: 'rgba(96, 165, 250, 0.15)',
-                  alignItems: 'center',
-                  justifyContent: 'center',
+                  alignItems: 'center', justifyContent: 'center',
                 }}
               >
                 <Ionicons name="key-outline" size={21} color="#60A5FA" />
@@ -301,28 +282,20 @@ export default function AccountScreen() {
           </View>
         </View>
 
-        {/* ── Tehlikeli Bölge ── */}
+        {/* ── Oturum & Hesap ── */}
         <View style={{ marginHorizontal: 16, marginBottom: 14 }}>
           <Text
             style={{
-              color: '#475569',
-              fontSize: 11,
-              fontWeight: '700',
-              letterSpacing: 1,
-              textTransform: 'uppercase',
-              marginBottom: 6,
-              marginLeft: 4,
+              color: '#475569', fontSize: 11, fontWeight: '700', letterSpacing: 1,
+              textTransform: 'uppercase', marginBottom: 6, marginLeft: 4,
             }}
           >
             Oturum & Hesap
           </Text>
           <View
             style={{
-              backgroundColor: '#1E293B',
-              borderRadius: 18,
-              borderWidth: 1,
-              borderColor: 'rgba(71, 85, 105, 0.3)',
-              overflow: 'hidden',
+              backgroundColor: '#1E293B', borderRadius: 18, borderWidth: 1,
+              borderColor: 'rgba(71, 85, 105, 0.3)', overflow: 'hidden',
             }}
           >
             <DangerRow
@@ -330,6 +303,7 @@ export default function AccountScreen() {
               label="Oturumu Kapat"
               description="Hesabınızdan güvenli çıkış yapın"
               onPress={handleSignOut}
+              loading={signingOut}
             />
             <View style={{ height: 1, backgroundColor: 'rgba(71, 85, 105, 0.2)', marginLeft: 74 }} />
             <DangerRow
@@ -345,14 +319,9 @@ export default function AccountScreen() {
         <View style={{ marginHorizontal: 16, marginTop: 4 }}>
           <View
             style={{
-              backgroundColor: 'rgba(239, 68, 68, 0.06)',
-              borderRadius: 14,
-              paddingHorizontal: 14,
-              paddingVertical: 12,
-              flexDirection: 'row',
-              alignItems: 'flex-start',
-              gap: 10,
-              borderWidth: 1,
+              backgroundColor: 'rgba(239, 68, 68, 0.06)', borderRadius: 14,
+              paddingHorizontal: 14, paddingVertical: 12, flexDirection: 'row',
+              alignItems: 'flex-start', gap: 10, borderWidth: 1,
               borderColor: 'rgba(239, 68, 68, 0.15)',
             }}
           >
