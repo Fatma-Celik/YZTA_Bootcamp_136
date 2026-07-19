@@ -57,14 +57,14 @@
 
 ## Kullanılan Teknolojiler
 
-| Katman            | Teknoloji                        |
-| ----------------- | -------------------------------- |
-| Backend           | FastAPI (Python)                 |
-| AI & LLM          | Gemini 2.5 Flash                 |
-| Görsel Tanıma     | Gemini Vision API                |
-| AI Agent + Hafıza | LangChain + ChromaDB (Sprint 3)  |
-| Veritabanı        | Supabase (PostgreSQL)            |
-| Frontend          | Next.js + TailwindCSS (Sprint 2) |
+| Katman            | Teknoloji                                    |
+| ----------------- | -------------------------------------------- |
+| Backend           | FastAPI (Python)                             |
+| AI & LLM          | Gemini 2.5 Flash                             |
+| Görsel Tanıma     | Gemini Vision API                            |
+| AI Agent + Hafıza | LangChain + ChromaDB (Sprint 3)              |
+| Veritabanı        | Supabase (PostgreSQL)                        |
+| Frontend          | Expo (React Native) + TailwindCSS (Sprint 2) |
 
 ---
 
@@ -200,5 +200,117 @@ Daily Scrum toplantıları WhatsApp grubu üzerinden yürütülmüştür.
 - `git push --force` kullanılmayacak
 - Frontend Sprint 2'nin ilk haftasında öncelikli olacak
 - Toplantı saatleri daha düzenli hale getirilecek
+
+</details>
+<details>
+<summary><b>Sprint 2 (Detayları Görmek İçin Tıklayın)</b></summary>
+<br>
+
+## Sprint Notları
+
+- Frontend teknolojisi Next.js'ten **Expo (React Native)**'e çevrildi — kamera erişimi ve mobil kullanıcı deneyimi için native yaklaşımın daha uygun olduğuna karar verildi
+- Vision API (Gemini 2.5 Flash) ile buzdolabı fotoğrafından malzeme + miktar tespiti tamamlandı, frontend ile uçtan uca test edildi
+- Kullanıcı kimlik doğrulama sistemi (email/şifre ile kayıt ve giriş) Supabase Auth ile tamamlandı, login ekranı entegre edildi
+- Profil sayfası eklendi: Vision API'den gelen malzeme listesi kullanıcıya gösteriliyor, kullanıcı listeyi düzenleyebiliyor, onaylanan liste tarif önerisine gönderiliyor
+- Türkçe tarif veri seti (HuggingFace, 104bit/turkish-recipe-dataset) Supabase'e aktarıldı — 3.315 gerçek tarif
+- `/tarif-oner` endpoint'i hibrit sisteme geçirildi: önce veritabanından gerçek tarif arıyor, bulamazsa Gemini 2.5 Flash'a düşüyor
+- Backend Render'a deploy edildi, kalıcı bir link üzerinden erişilebilir hale getirildi
+- Proje yönetim aracı Asana'dan ClickUp'a geçirildi (Asana ücretsiz deneme süresi doldu)
+
+> **Not:** Frontend geliştirmeleri (login, profil sayfası, malzeme düzenleme akışı) `feature/kitchen-frontend` branch'inde tamamlanmış ve test edilmiştir. Kod kalitesini korumak adına merge işlemi Sprint 3'e planlanmıştır. İlgili branch: [feature/kitchen-frontend](https://github.com/Fatma-Celik/YZTA_Bootcamp_136/tree/feature/kitchen-frontend)
+
+## Sprint İçinde Tamamlanması Tahmin Edilen Puan
+
+**100 Puan**
+
+## Backlog Dağıtma Mantığı
+
+| Görev                                          | Puan    |
+| ---------------------------------------------- | ------- |
+| Expo (React Native) frontend kurulumu          | 20      |
+| Vision API entegrasyonu (Gemini 2.5 Flash)     | 10      |
+| Türkçe tarif veri seti entegrasyonu (Supabase) | 20      |
+| Kullanıcı kimlik doğrulama (Supabase Auth)     | 15      |
+| Profil sayfası ve malzeme düzenleme akışı      | 15      |
+| Backend deploy (Render)                        | 10      |
+| Frontend-backend entegrasyonu                  | 10      |
+| **Toplam**                                     | **100** |
+
+## Daily Scrum
+
+- [14 Temmuz 2026 - Toplantı Notu](Project%20Files/Sprint2/Sprint2_Daily_Scrum/sprint2_14Temmuz.md)
+- [19 Temmuz 2026 - Toplantı Notu](Project%20Files/Sprint2/Sprint2_Daily_Scrum/sprint2_19Temmuz.md)
+
+## Sprint Board Update
+
+![ClickUp Sprint Board](Project%20Files/Sprint2/Sprint2_PM/clickup_board.png)
+
+![ClickUp Gantt Şeması](Project%20Files/Sprint2/Sprint2_PM/clickup_gantt.jpeg)
+
+## Ürün Durumu
+
+### Vision API — Buzdolabı Malzeme Tespiti
+
+![Vision API Response](Project%20Files/Sprint2/Sprint2_Backend_ss/swagger_malzeme_tani.jpeg)
+
+### Tarif Önerisi — Veritabanı + Gemini Hibrit Sistemi
+
+![Veritabanından Tarif](Project%20Files/Sprint2/Sprint2_Backend_ss/swagger_tarif_oner_veritabani.jpeg)
+![Gemini Fallback](Project%20Files/Sprint2/Sprint2_Backend_ss/swagger_tarif_oner_gemini.jpeg)
+
+### Uygulama Demo Videosu
+
+Kullanıcı girişi, buzdolabı fotoğrafı çekme, malzeme tespiti ve düzenleme, tarif önerisi alma akışının uçtan uca gösterimi:
+
+### Canlı Backend
+
+🔗 [https://yzta-bootcamp-136.onrender.com/docs](https://yzta-bootcamp-136.onrender.com/docs)
+
+## Sprint Review
+
+**Sprint 2 Tarihleri:** 6 Temmuz – 19 Temmuz 2026
+
+**Katılımcılar:** Ömer Faruk Gülşen, Yüsra Yalavuz, Fatma Çelik, Demir Demirkaya, Seyfi Berk Yılmaz
+
+### Tamamlanan İşler ✅
+
+- Vision API entegrasyonu (Gemini 2.5 Flash), buzdolabı fotoğrafından malzeme + miktar tespiti, frontend ile uçtan uca test edildi
+- 3.315 Türkçe tarif Supabase'e aktarıldı, `/tarif-oner` hibrit (veritabanı + Gemini) sisteme geçirildi
+- Kullanıcı kimlik doğrulama sistemi (email/şifre) ve login ekranı tamamlandı
+- Profil sayfası: AI'dan gelen malzeme listesi gösteriliyor, kullanıcı düzenleyebiliyor, onaylanan listeyle tarif üretiliyor
+- Backend Render'a deploy edildi (kalıcı link)
+- ClickUp'a proje yönetim geçişi
+
+### Sprint 3'e Taşınan İşler 🔄
+
+- Frontend branch'inin (login/auth dahil) main'e merge edilmesi
+- Malzeme adı normalizasyonu (frontend'den miktarlı gelen malzeme isimlerinin veritabanı eşleşmesi için temizlenmesi)
+- LangChain + ChromaDB hafıza sistemi
+- AI Agent mimarisi ve orkestrasyon
+- Backend/frontend klasör yapısının düzenlenmesi (backend/, frontend/ ayrımı)
+- Buzdolabının dijital ikizinin oluşturulması
+- Final deploy ve demo video
+
+## Sprint Retrospective
+
+### Ne İyi Gitti? ✅
+
+- Vision API beklenenden hızlı ve başarılı test edildi
+- Hibrit tarif sistemi (veritabanı + AI) başarıyla kuruldu, gerçek veri kullanımı sağlandı
+- Kullanıcı auth sistemi ve profil sayfası branch'te sorunsuz tamamlandı
+
+### Ne Kötü Gitti? ❌
+
+- Asana'nın ücretsiz deneme süresinin bitmesi öngörülemedi, ClickUp'a son anda geçiş yapıldı
+- Deploy sürecinde eksik ortam değişkenleri ve bağımlılıklar zaman kaybettirdi
+- Frontend branch'i main'e merge edilirken hatalar alındı, son anda riskli bir merge yapmak yerine Sprint 3'te düzgünce ele alınmasına karar verildi
+- Frontend'den gönderilen malzeme isimlerinin miktar bilgisi içermesi, veritabanı eşleşmesini engelliyor — tespit edildi, Sprint 3'te çözülecek
+
+### Sprint 3'te Ne Değiştireceğiz? 🔧
+
+- Frontend branch'i Sprint 3'ün ilk günlerinde main'e alınacak
+- Deploy/ortam değişkeni kontrolleri her deploy öncesi yapılacak
+- Malzeme adı normalizasyonu öncelikli olarak ele alınacak
+- Backend/frontend klasör ayrımı yapılacak
 
 </details>
