@@ -5,6 +5,7 @@ import { useEffect } from 'react';
 import 'react-native-reanimated';
 import '../global.css'
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { RecipeFlowProvider } from '@/hooks/useRecipeFlow';
 
 import { useColorScheme } from '@/components/useColorScheme';
 
@@ -48,14 +49,17 @@ function RootLayoutNav() {
   const colorScheme = useColorScheme();
 
   return (
-    <SafeAreaProvider>
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <Stack>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
-          <Stack.Screen name="profile" options={{ headerShown: false }} />
-        </Stack>
-      </ThemeProvider>
-    </SafeAreaProvider>
+    <RecipeFlowProvider>
+      <SafeAreaProvider>
+        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+          <Stack>
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
+            <Stack.Screen name="profile" options={{ headerShown: false }} />
+            <Stack.Screen name="scanner" options={{ headerShown: false }} />
+          </Stack>
+        </ThemeProvider>
+      </SafeAreaProvider>
+    </RecipeFlowProvider>
   );
 }
