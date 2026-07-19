@@ -262,6 +262,8 @@ Daily Scrum toplantıları WhatsApp grubu üzerinden yürütülmüştür.
 
 Kullanıcı girişi, buzdolabı fotoğrafı çekme, malzeme tespiti ve düzenleme, tarif önerisi alma akışının uçtan uca gösterimi:
 
+[![NexBite Demo Video](https://img.youtube.com/vi/z7DUQA7OWtM/0.jpg)](https://youtube.com/shorts/z7DUQA7OWtM)
+
 ### Canlı Backend
 
 🔗 [https://yzta-bootcamp-136.onrender.com/docs](https://yzta-bootcamp-136.onrender.com/docs)
