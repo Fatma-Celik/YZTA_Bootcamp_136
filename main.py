@@ -4,6 +4,8 @@ from dotenv import load_dotenv
 import os
 import json
 import base64
+from supabase import create_client
+
 try:
     from google import genai
     from google.genai import types
@@ -28,7 +30,18 @@ if genai is not None and GEMINI_API_KEY:
 else:
     print("⚠️ GEMINI_API_KEY bulunamadı. API demo modda çalışacak.")
 
-
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
+supabase_client = None
+ 
+if SUPABASE_URL and SUPABASE_KEY:
+    try:
+        supabase_client = create_client(SUPABASE_URL, SUPABASE_KEY)
+    except Exception as e:
+        print(f"⚠️ Supabase istemcisi başlatılamadı: {e}")
+else:
+    print("⚠️ SUPABASE_URL/SUPABASE_SERVICE_KEY bulunamadı. Veritabanı tarif araması devre dışı.")
+ 
 class MalzemeGirisi(BaseModel):
     malzemeler: list[str]
     kisi_sayisi: int = 2
@@ -76,6 +89,45 @@ def ai_yanit_gorsel(prompt: str, image_bytes: bytes, mime_type: str = "image/jpe
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Görsel analiz edilemedi: {str(e)}")
     
+def veritabanindan_tarif_bul(malzemeler: list[str], limit: int = 3):
+    """
+    Verilen malzeme listesiyle en çok eşleşen tarifleri veritabanından bulur.
+    Supabase bağlantısı yoksa veya eşleşme bulunamazsa boş liste döner.
+    """
+    if supabase_client is None:
+        return []
+ 
+    try:
+        # Malzeme isimleriyle eşleşen ingredient id'lerini bul
+        ingredient_sonuc = supabase_client.table("ingredients").select("id, name").in_("name", malzemeler).execute()
+        ingredient_ids = [row["id"] for row in ingredient_sonuc.data]
+ 
+        if not ingredient_ids:
+            return []
+ 
+        # Bu malzemeleri kullanan recipe_ingredients kayıtlarını bul
+        ri_sonuc = supabase_client.table("recipe_ingredients").select("recipe_id, ingredient_id").in_("ingredient_id", ingredient_ids).execute()
+ 
+        # Her tarifin kaç malzeme eşleştiğini say
+        recipe_eslesme_sayisi = {}
+        for row in ri_sonuc.data:
+            rid = row["recipe_id"]
+            recipe_eslesme_sayisi[rid] = recipe_eslesme_sayisi.get(rid, 0) + 1
+ 
+        # En çok eşleşenden en aza sırala, ilk `limit` kadarını al
+        en_iyi_recipe_ids = sorted(recipe_eslesme_sayisi, key=recipe_eslesme_sayisi.get, reverse=True)[:limit]
+ 
+        if not en_iyi_recipe_ids:
+            return []
+ 
+        # Tariflerin detaylarını çek
+        tarif_sonuc = supabase_client.table("recipes").select("*").in_("id", en_iyi_recipe_ids).execute()
+        return tarif_sonuc.data
+ 
+    except Exception as e:
+        print(f"⚠️ Veritabanı tarif araması başarısız: {e}")
+        return []
+
 @app.get("/")
 async def root():
     return {"mesaj": "Akıllı Mutfak Asistanı API'ye hoş geldiniz!"}
@@ -83,53 +135,68 @@ async def root():
 
 @app.post("/tarif-oner")
 async def tarif_oner(giris: MalzemeGirisi):
+    # 1. Önce veritabanından gerçek tarifleri dene
+    db_tarifler = veritabanindan_tarif_bul(giris.malzemeler, limit=3)
+ 
+    if len(db_tarifler) >= 2:
+        # Yeterli eşleşme var, veritabanı sonucunu döndür
+        return {
+            "kaynak": "veritabani",
+            "tarifler": db_tarifler,
+            "kullanilan_malzemeler": giris.malzemeler,
+            "kisi_sayisi": giris.kisi_sayisi
+        }
+ 
+    # 2. Yeterli eşleşme yoksa, Gemini'ye düş (mevcut davranış)
     malzeme_listesi = ", ".join(giris.malzemeler)
-
+ 
     hedef_mesaj = {
         "kilo_verme": "Düşük kalorili, yüksek proteinli ve tok tutan tarifler öner.",
         "kas_kazanma": "Yüksek proteinli, karbonhidrat dengeli tarifler öner.",
         "form_koruma": "Dengeli makro besinlerle sağlıklı tarifler öner.",
         "normal": "Lezzetli ve pratik tarifler öner."
     }.get(giris.hedef, "Lezzetli ve pratik tarifler öner.")
-
+ 
     prompt = f"""
 Sen Türkiye'nin en iyi aşçısı ve diyetisyenisin. Her zaman Türkçe yanıt verirsin.
-
+ 
 Aşağıdaki bilgilere göre 3 farklı yemek tarifi öner.
-
+ 
 Mevcut malzemeler: {malzeme_listesi}
 Kişi sayısı: {giris.kisi_sayisi}
 Maksimum hazırlık süresi: {giris.sure_dakika} dakika
 Diyet tercihi: {giris.diyet}
 Kullanıcı hedefi: {hedef_mesaj}
-
+ 
 Her tarif için şu formatta yanıt ver:
-
+ 
 🍽️ TARİF ADI
 📝 Malzemeler ve Miktarlar:
 - [malzeme]: [miktar]
-
+ 
 👨‍🍳 Yapılış:
 1. [adım]
-
+ 
 📊 Besin Değerleri (tahmini, 1 porsiyon):
 - Kalori: X kcal
 - Protein: X g
 - Karbonhidrat: X g
 - Yağ: X g
-
+ 
 ⏱️ Hazırlık Süresi: X dakika
 💡 İpucu: [kısa bir öneri]
-
+ 
 ---
 """
-
+ 
     yanit = ai_yanit(prompt)
     return {
+        "kaynak": "gemini",
         "tarifler": yanit,
         "kullanilan_malzemeler": giris.malzemeler,
         "kisi_sayisi": giris.kisi_sayisi
     }
+ 
 
 
 @app.post("/makro-hesapla")
@@ -283,3 +350,4 @@ SADECE aşağıdaki JSON formatında yanıt ver, başka hiçbir açıklama eklem
         raise HTTPException(status_code=500, detail="AI yanıtı işlenemedi, tekrar deneyin.")
 
     return {"malzemeler": malzeme_listesi}
+
