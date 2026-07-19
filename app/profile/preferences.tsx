@@ -10,11 +10,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-
+import { useTheme, ThemeMode } from '@/contexts/ThemeContext';
 // ─────────────── Tipler ───────────────
 type ThemeOption = 'system' | 'light' | 'dark';
 type LanguageOption = 'tr' | 'en';
 type UnitOption = 'metric' | 'imperial';
+
 
 const THEME_LABELS: Record<ThemeOption, string> = {
   system: 'Sisteme Göre',
@@ -267,7 +268,7 @@ function SectionCard({ title, children }: { title: string; children: React.React
 // ─────────────── Ana Ekran ───────────────
 export default function PreferencesScreen() {
   // Tema
-  const [theme, setTheme] = useState<ThemeOption>('system');
+  const { mode, setMode, colors } = useTheme();
   const [themeModalVisible, setThemeModalVisible] = useState(false);
 
   // Toggle'lar
@@ -294,13 +295,13 @@ export default function PreferencesScreen() {
         {/* ── Görünüm ── */}
         <SectionCard title="Görünüm">
           <DropdownRow
-            icon="contrast-outline"
-            iconBg="rgba(99, 102, 241, 0.15)"
-            iconColor="#818CF8"
-            label="Tema"
-            value={THEME_LABELS[theme]}
-            onPress={() => setThemeModalVisible(true)}
-          />
+              icon="contrast-outline"
+              iconBg="rgba(99, 102, 241, 0.15)"
+              iconColor="#818CF8"
+              label="Tema"
+              value={THEME_LABELS[mode]}
+              onPress={() => setThemeModalVisible(true)}
+            />
         </SectionCard>
 
         {/* ── Bildirim & Ses ── */}
@@ -384,10 +385,10 @@ export default function PreferencesScreen() {
       <DropdownModal
         visible={themeModalVisible}
         title="Tema Seçin"
-        options={['system', 'light', 'dark'] as ThemeOption[]}
+        options={['system', 'light', 'dark'] as ThemeMode[]}
         labels={THEME_LABELS}
-        selected={theme}
-        onSelect={setTheme}
+        selected={mode}
+        onSelect={setMode}
         onClose={() => setThemeModalVisible(false)}
       />
       <DropdownModal
@@ -401,7 +402,7 @@ export default function PreferencesScreen() {
       />
       <DropdownModal
         visible={unitModalVisible}
-        title="Ölçü Birimi"
+        title="Ölçü Birimi Seçin"
         options={['metric', 'imperial'] as UnitOption[]}
         labels={UNIT_LABELS}
         selected={unit}

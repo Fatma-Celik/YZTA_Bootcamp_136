@@ -3,9 +3,10 @@ import { DarkTheme, DefaultTheme, Stack, ThemeProvider, useRouter, useSegments }
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
-import '../global.css'
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-
+import AnimatedLoadingScreen from '@/components/AnimatedLoadingScreen';
+import { ThemeProvider as AppThemeProvider } from '@/contexts/ThemeContext';
 import { useColorScheme } from '@/components/useColorScheme';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 
@@ -39,9 +40,13 @@ export default function RootLayout() {
   }
 
   return (
-    <AuthProvider>
-      <RootLayoutNav />
-    </AuthProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <AuthProvider>
+        <AppThemeProvider>
+          <RootLayoutNav />
+        </AppThemeProvider>
+      </AuthProvider>
+    </GestureHandlerRootView>
   );
 }
 
@@ -63,7 +68,9 @@ function RootLayoutNav() {
     }
   }, [session, loading, segments]);
 
-  if (loading) return null;
+  if (loading) {
+    return <AnimatedLoadingScreen />;
+  }
 
   return (
     <SafeAreaProvider>

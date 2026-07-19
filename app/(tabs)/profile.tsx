@@ -9,6 +9,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useAuth } from '@/contexts/AuthContext';
+import { useProfile } from '@/hooks/useProfile';
+import { useProfileStats } from '@/hooks/useProfileStats';
+import { ActivityIndicator } from 'react-native';
 
 // ─── Tip Tanımları ───
 interface MenuSection {
@@ -161,137 +165,73 @@ function MenuRow({ item, onPress }: { item: MenuItem; onPress: () => void }) {
 
 export default function TabProfileScreen() {
   const router = useRouter();
+  const { user } = useAuth();
+  const { profile, loading: profileLoading } = useProfile();
+  const { stats, loading: statsLoading } = useProfileStats();
+
+  const displayName = profile?.full_name || user?.email?.split('@')[0] || 'Kullanıcı';
+  const email = user?.email ?? '—';
+  const initials = displayName.split(' ').map((p) => p[0]).join('').slice(0, 2).toUpperCase();
+
+  if (profileLoading) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#0F172A', justifyContent: 'center' }}>
+        <ActivityIndicator color="#FF6B35" />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#0F172A' }}>
       <StatusBar barStyle="light-content" />
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 32 }}>
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 32 }}
-      >
-        {/* ── Header ── */}
         <View style={{ paddingHorizontal: 16, paddingTop: 20, paddingBottom: 8 }}>
-          <Text style={{ color: '#F1F5F9', fontSize: 22, fontWeight: '800', letterSpacing: -0.4 }}>
-            Profil
-          </Text>
-          <Text style={{ color: '#64748B', fontSize: 13, fontWeight: '500', marginTop: 2 }}>
-            Hesap ve uygulama ayarları
-          </Text>
+          <Text style={{ color: '#F1F5F9', fontSize: 22, fontWeight: '800', letterSpacing: -0.4 }}>Profil</Text>
+          <Text style={{ color: '#64748B', fontSize: 13, fontWeight: '500', marginTop: 2 }}>Hesap ve uygulama ayarları</Text>
         </View>
 
-        {/* ── Avatar + İsim Kartı ── */}
-        <View
-          style={{
-            marginHorizontal: 16,
-            marginTop: 16,
-            backgroundColor: '#1E293B',
-            borderRadius: 20,
-            padding: 20,
-            borderWidth: 1,
-            borderColor: 'rgba(71, 85, 105, 0.3)',
-            alignItems: 'center',
-          }}
-        >
-          {/* Avatar */}
-          <View
-            style={{
-              width: 80,
-              height: 80,
-              borderRadius: 40,
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: '#FF6B35',
-              shadowColor: '#FF6B35',
-              shadowOffset: { width: 0, height: 6 },
-              shadowOpacity: 0.4,
-              shadowRadius: 12,
-              elevation: 8,
-            }}
-          >
-            <Text style={{ color: '#fff', fontSize: 28, fontWeight: '900' }}>AK</Text>
+        <View style={{
+          marginHorizontal: 16, marginTop: 16, backgroundColor: '#1E293B', borderRadius: 20,
+          padding: 20, borderWidth: 1, borderColor: 'rgba(71, 85, 105, 0.3)', alignItems: 'center',
+        }}>
+          <View style={{
+            width: 80, height: 80, borderRadius: 40, alignItems: 'center', justifyContent: 'center',
+            backgroundColor: '#FF6B35', shadowColor: '#FF6B35', shadowOffset: { width: 0, height: 6 },
+            shadowOpacity: 0.4, shadowRadius: 12, elevation: 8,
+          }}>
+            <Text style={{ color: '#fff', fontSize: 28, fontWeight: '900' }}>{initials}</Text>
           </View>
 
-          {/* Rozet */}
-          <View
-            style={{
-              marginTop: 8,
-              backgroundColor: 'rgba(255, 107, 53, 0.15)',
-              borderRadius: 20,
-              paddingHorizontal: 12,
-              paddingVertical: 4,
-              borderWidth: 1,
-              borderColor: 'rgba(255, 107, 53, 0.4)',
-            }}
-          >
-            <Text style={{ color: '#FF6B35', fontSize: 11, fontWeight: '700' }}>✦ Premium Üye</Text>
-          </View>
-
-          <Text
-            style={{
-              color: '#F1F5F9',
-              fontSize: 20,
-              fontWeight: '800',
-              marginTop: 12,
-              letterSpacing: -0.3,
-            }}
-          >
-            Ahmet Kaya
+          <Text style={{ color: '#F1F5F9', fontSize: 20, fontWeight: '800', marginTop: 12, letterSpacing: -0.3 }}>
+            {displayName}
           </Text>
-          <Text style={{ color: '#64748B', fontSize: 13, fontWeight: '500', marginTop: 4 }}>
-            ahmet.kaya@email.com
-          </Text>
+          <Text style={{ color: '#64748B', fontSize: 13, fontWeight: '500', marginTop: 4 }}>{email}</Text>
 
-          {/* İstatistik Kutuları */}
           <View style={{ flexDirection: 'row', gap: 10, marginTop: 18, width: '100%' }}>
-            <StatBox label="Tarif" value="47" />
-            <StatBox label="Alışveriş" value="12" />
-            <StatBox label="Alerjen" value="3" />
+            <StatBox label="Tarif" value={statsLoading ? '—' : String(stats.recipeCount)} />
+            <StatBox label="Alışveriş" value={statsLoading ? '—' : String(stats.shoppingListCount)} />
+            <StatBox label="Alerjen" value={statsLoading ? '—' : String(stats.allergenCount)} />
           </View>
         </View>
 
-        {/* ── Menü Grupları ── */}
         {menuSections.map((section, sIdx) => (
           <View key={section.title} style={{ marginTop: sIdx === 0 ? 24 : 14, marginHorizontal: 16 }}>
-            {/* Grup Başlığı */}
-            <Text
-              style={{
-                color: '#475569',
-                fontSize: 11,
-                fontWeight: '700',
-                letterSpacing: 1,
-                textTransform: 'uppercase',
-                marginBottom: 6,
-                marginLeft: 4,
-              }}
-            >
+            <Text style={{
+              color: '#475569', fontSize: 11, fontWeight: '700', letterSpacing: 1,
+              textTransform: 'uppercase', marginBottom: 6, marginLeft: 4,
+            }}>
               {section.title}
             </Text>
-
-            {/* Kart */}
-            <View
-              style={{
-                backgroundColor: '#1E293B',
-                borderRadius: 18,
-                borderWidth: 1,
-                borderColor: 'rgba(71, 85, 105, 0.3)',
-                overflow: 'hidden',
-              }}
-            >
+            <View style={{
+              backgroundColor: '#1E293B', borderRadius: 18, borderWidth: 1,
+              borderColor: 'rgba(71, 85, 105, 0.3)', overflow: 'hidden',
+            }}>
               {section.items.map((item, iIdx) => (
                 <View key={item.id}>
-                  <MenuRow
-                    item={item}
-                    onPress={() => router.push(item.route as any)}
-                  />
+                  <MenuRow item={item} onPress={() => router.push(item.route as any)} />
                   {iIdx < section.items.length - 1 && (
-                    <View
-                      style={{
-                        height: 1,
-                        backgroundColor: 'rgba(71, 85, 105, 0.2)',
-                        marginLeft: 74,
-                      }}
-                    />
+                    <View style={{ height: 1, backgroundColor: 'rgba(71, 85, 105, 0.2)', marginLeft: 74 }} />
                   )}
                 </View>
               ))}
@@ -299,17 +239,8 @@ export default function TabProfileScreen() {
           </View>
         ))}
 
-        {/* ── Versiyon ── */}
-        <Text
-          style={{
-            color: '#334155',
-            fontSize: 12,
-            fontWeight: '500',
-            textAlign: 'center',
-            marginTop: 32,
-          }}
-        >
-          Mutfak Asistanı v1.0.0
+        <Text style={{ color: '#334155', fontSize: 12, fontWeight: '500', textAlign: 'center', marginTop: 32 }}>
+          NexBite v1.0.0
         </Text>
       </ScrollView>
     </SafeAreaView>
