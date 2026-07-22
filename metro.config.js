@@ -1,3 +1,9 @@
 const { getDefaultConfig } = require("expo/metro-config");
+const { withNativeWind } = require("nativewind/metro");
 
-module.exports = getDefaultConfig(__dirname);
+const config = getDefaultConfig(__dirname, {
+  // Metro'ya CSS dosyalarını ve web/native ayrımını yapabilmesi için destek açıyoruz
+  isCSSEnabled: true,
+});
+
+module.exports = withNativeWind(config, { input: "./global.css", cliCommand: "npx tailwindcss" });

@@ -6,7 +6,7 @@ import 'react-native-reanimated';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { RecipeFlowProvider } from '@/hooks/useRecipeFlow';
-
+import '../global.css'
 import AnimatedLoadingScreen from '@/components/AnimatedLoadingScreen';
 import { ThemeProvider as AppThemeProvider } from '@/contexts/ThemeContext';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -83,6 +83,7 @@ function RootLayoutNav() {
             <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
             <Stack.Screen name="profile" options={{ headerShown: false }} />
             <Stack.Screen name="scanner" options={{ headerShown: false }} />
+            <Stack.Screen name="fridge" options={{ headerShown: false }} />
             <Stack.Screen name="(auth)" options={{ headerShown: false }} />
           </Stack>
         </ThemeProvider>
