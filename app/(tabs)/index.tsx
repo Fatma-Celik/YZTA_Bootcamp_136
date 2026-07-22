@@ -1,11 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, ScrollView, View, Text, StatusBar } from 'react-native';
+import { StyleSheet, ScrollView, View, Text, StatusBar, TouchableOpacity } from 'react-native';
+import { useRouter } from 'expo-router';
 import LottieView from 'lottie-react-native';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 
 import CalorieWidget from '@/components/CaloriWidget';
 import RecentMealCard from '@/components/LastlyMealCard';
 
 export default function TabOneScreen() {
+  const router = useRouter();
   const [meals, setMeals] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
@@ -77,6 +80,31 @@ export default function TabOneScreen() {
           </View>
         )}
       </ScrollView>
+
+      {/* ── Buzdolabım FAB ── */}
+      <TouchableOpacity
+        activeOpacity={0.85}
+        onPress={() => router.push('/fridge')}
+        style={{
+          position: 'absolute',
+          bottom: 30,
+          right: 20,
+          width: 60,
+          height: 60,
+          borderRadius: 30,
+          backgroundColor: '#FF6B35',
+          alignItems: 'center',
+          justifyContent: 'center',
+          shadowColor: '#FF6B35',
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.35,
+          shadowRadius: 10,
+          elevation: 8,
+          zIndex: 100,
+        }}
+      >
+        <MaterialCommunityIcons name="fridge" size={30} color="white" />
+      </TouchableOpacity>
     </View>
   );
 }
