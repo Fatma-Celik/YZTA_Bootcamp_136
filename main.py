@@ -4,6 +4,8 @@ from dotenv import load_dotenv
 import os
 import json
 import base64
+import re
+from concurrent.futures import ThreadPoolExecutor
 from supabase import create_client
 
 try:
@@ -48,6 +50,8 @@ class MalzemeGirisi(BaseModel):
     sure_dakika: int = 30
     diyet: str = "normal"
     hedef: str = "normal"
+    ogun: str = "belirtilmemiş"  # kahvalti, ogle, aksam, ara_ogun
+    alerjenler: list[str] = []  # örn: ["fıstık", "laktoz", "gluten"]
 
 class YemekFotografi(BaseModel):
     aciklama: str
@@ -88,46 +92,132 @@ def ai_yanit_gorsel(prompt: str, image_bytes: bytes, mime_type: str = "image/jpe
         return response.text
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Görsel analiz edilemedi: {str(e)}")
-    
-def veritabanindan_tarif_bul(malzemeler: list[str], limit: int = 3):
+
+def malzeme_adini_temizle(malzeme: str) -> str:
+    """
+    'yoğurt 300 mililitre (ml)' -> 'yoğurt'
+    'peynir 1 gram (g)' -> 'peynir'
+    'sucuk 1 adet' -> 'sucuk'
+    """
+    temiz = re.sub(r'\([^)]*\)', '', malzeme)
+    temiz = re.sub(
+        r'\d+([.,]\d+)?\s*(mililitre|litre|gram|kilogram|adet|ml|g|kg|l|demet|kap|dilim|paket|diş|su bardağı|çay kaşığı|yemek kaşığı)?',
+        '', temiz, flags=re.IGNORECASE
+    )
+    return temiz.strip()
+
+def veritabanindan_tarif_bul(malzemeler: list[str], limit: int = 3, alerjenler: list[str] = None):
     """
     Verilen malzeme listesiyle en çok eşleşen tarifleri veritabanından bulur.
+    Alerjen listesi verilirse, o malzemeleri içeren tarifleri sonuçtan çıkarır.
     Supabase bağlantısı yoksa veya eşleşme bulunamazsa boş liste döner.
     """
     if supabase_client is None:
         return []
- 
+
     try:
-        # Malzeme isimleriyle eşleşen ingredient id'lerini bul
         ingredient_sonuc = supabase_client.table("ingredients").select("id, name").in_("name", malzemeler).execute()
         ingredient_ids = [row["id"] for row in ingredient_sonuc.data]
- 
+
         if not ingredient_ids:
             return []
- 
-        # Bu malzemeleri kullanan recipe_ingredients kayıtlarını bul
+
         ri_sonuc = supabase_client.table("recipe_ingredients").select("recipe_id, ingredient_id").in_("ingredient_id", ingredient_ids).execute()
- 
-        # Her tarifin kaç malzeme eşleştiğini say
+
         recipe_eslesme_sayisi = {}
         for row in ri_sonuc.data:
             rid = row["recipe_id"]
             recipe_eslesme_sayisi[rid] = recipe_eslesme_sayisi.get(rid, 0) + 1
- 
-        # En çok eşleşenden en aza sırala, ilk `limit` kadarını al
+
+        # Alerjenleri içeren tarifleri dışla
+        if alerjenler:
+            alerjen_ingredient_sonuc = supabase_client.table("ingredients").select("id").in_("name", alerjenler).execute()
+            alerjen_ids = [row["id"] for row in alerjen_ingredient_sonuc.data]
+
+            if alerjen_ids:
+                alerjenli_ri = supabase_client.table("recipe_ingredients").select("recipe_id").in_("ingredient_id", alerjen_ids).execute()
+                alerjenli_recipe_ids = set(row["recipe_id"] for row in alerjenli_ri.data)
+                recipe_eslesme_sayisi = {
+                    rid: sayi for rid, sayi in recipe_eslesme_sayisi.items()
+                    if rid not in alerjenli_recipe_ids
+                }
+
         en_iyi_recipe_ids = sorted(recipe_eslesme_sayisi, key=recipe_eslesme_sayisi.get, reverse=True)[:limit]
- 
+
         if not en_iyi_recipe_ids:
             return []
- 
-        # Tariflerin detaylarını çek
+
         tarif_sonuc = supabase_client.table("recipes").select("*").in_("id", en_iyi_recipe_ids).execute()
         return tarif_sonuc.data
- 
+
     except Exception as e:
         print(f"⚠️ Veritabanı tarif araması başarısız: {e}")
         return []
 
+def tarif_formatla_ve_zenginlestir(db_tarif: dict, hedef: str, kisi_sayisi: int, ogun: str = "belirtilmemiş", diyet: str = "normal", alerjenler: list[str] = None) -> dict:
+    """Veritabanından gelen tarifi Gemini ile zenginleştirir, eksikleri doldurur, standart JSON'a çevirir."""
+
+    diyet_mesaj = {
+        "vejetaryen": "Et, tavuk, balık KULLANMA. Sebze, süt ürünü, yumurta, bakliyat ağırlıklı tarifler öner.",
+        "vegan": "Et, tavuk, balık, süt ürünü, yumurta, bal gibi hiçbir hayvansal ürün KULLANMA.",
+        "glutensiz": "Buğday, arpa, çavdar, un, ekmek, makarna gibi gluten içeren malzemeler KULLANMA.",
+        "ketojenik": "Karbonhidratı çok düşük, yağ ve protein ağırlıklı tarifler öner. Pirinç, ekmek, patates, şeker kullanma.",
+        "normal": "Herhangi bir kısıtlama yok, dengeli ve çeşitli tarifler öner."
+    }.get(diyet, "Herhangi bir kısıtlama yok, dengeli ve çeşitli tarifler öner.")
+
+    alerjen_uyarisi = ""
+    if alerjenler:
+        alerjen_uyarisi = f"\nKullanıcının alerjileri: {', '.join(alerjenler)} — bu malzemeleri KESİNLİKLE önerme, alternatif göstermeye çalışırsan bile bu malzemeleri kullanma."
+
+    prompt = f"""
+Şu gerçek Türk yemek tarifini baz al, İÇERİĞİNİ DEĞİŞTİRME, sadece eksikleri makul şekilde tamamla ve istenen formata çevir:
+
+Tarif adı: {db_tarif.get('title')}
+Kategori: {db_tarif.get('kategori')}
+Zorluk: {db_tarif.get('zorluk')}
+Porsiyon: {db_tarif.get('servings') or 'belirtilmemiş, kişi sayısına göre tahmin et'}
+Hazırlık süresi: {db_tarif.get('hazirlik_suresi_dk') or 'belirtilmemiş, tahmin et'} dakika
+Pişirme süresi: {db_tarif.get('pisirme_suresi_dk') or 'belirtilmemiş, tahmin et'} dakika
+Yapılış adımları: {db_tarif.get('yapilis_adimlari')}
+Kullanıcı hedefi: {hedef}
+Diyet kısıtlaması: {diyet_mesaj}
+Kaç kişilik: {kisi_sayisi}
+Öğün: {ogun if ogun != "belirtilmemiş" else "herhangi bir öğün için uygun"}{alerjen_uyarisi}
+
+NOT: Eğer bu tarif diyet kısıtlamasına UYMUYORSA (örn. vejetaryen isteniyor ama tarifte et varsa),
+malzemeleri ve yapılış adımlarını uygun alternatiflerle DEĞİŞTİR (örn. kıyma yerine mantar/nohut gibi).
+
+ÖNEMLİ: besin_degerleri alanındaki kalori, protein, karbonhidrat ve yağ değerlerini
+TÜM TARİF İÇİN DEĞİL, KİŞİ BAŞINA (1 porsiyon) hesapla. Tarif {kisi_sayisi} kişilik
+olduğu için, toplam malzeme miktarlarını {kisi_sayisi}'e bölerek 1 porsiyonluk
+değerleri ver.
+
+Ayrıca yapılış adımlarından geçen malzemeleri (isim ve miktar olarak) çıkarıp
+"malzemeler" listesine ayrıca yaz.
+
+SADECE şu JSON formatında yanıt ver, başka açıklama ekleme:
+{{
+  "tarif_adi": "...",
+  "kategori": "...",
+  "zorluk": "...",
+  "porsiyon": {kisi_sayisi},
+  "hazirlik_suresi_dk": 0,
+  "pisirme_suresi_dk": 0,
+  "malzemeler": [
+    {{"ad": "...", "miktar": "..."}}
+  ],
+  "yapilis_adimlari": ["...", "..."],
+  "besin_degerleri": {{"kalori": 0, "protein": 0, "karbonhidrat": 0, "yag": 0}},
+  "hedef_onerisi": "..."
+}}
+"""
+    yanit = ai_yanit(prompt)
+    temiz = yanit.strip().replace("```json", "").replace("```", "").strip()
+    try:
+        return json.loads(temiz)
+    except json.JSONDecodeError:
+        return None
+    
 @app.get("/")
 async def root():
     return {"mesaj": "Akıllı Mutfak Asistanı API'ye hoş geldiniz!"}
@@ -135,68 +225,95 @@ async def root():
 
 @app.post("/tarif-oner")
 async def tarif_oner(giris: MalzemeGirisi):
-    # 1. Önce veritabanından gerçek tarifleri dene
-    db_tarifler = veritabanindan_tarif_bul(giris.malzemeler, limit=3)
- 
+    temiz_malzemeler = [malzeme_adini_temizle(m) for m in giris.malzemeler]
+
+    db_tarifler = veritabanindan_tarif_bul(temiz_malzemeler, limit=3, alerjenler=giris.alerjenler)
+
     if len(db_tarifler) >= 2:
-        # Yeterli eşleşme var, veritabanı sonucunu döndür
-        return {
-            "kaynak": "veritabani",
-            "tarifler": db_tarifler,
-            "kullanilan_malzemeler": giris.malzemeler,
-            "kisi_sayisi": giris.kisi_sayisi
-        }
- 
-    # 2. Yeterli eşleşme yoksa, Gemini'ye düş (mevcut davranış)
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            futures = [
+                executor.submit(tarif_formatla_ve_zenginlestir, tarif, giris.hedef, giris.kisi_sayisi, giris.ogun, giris.diyet, giris.alerjenler)
+                for tarif in db_tarifler
+            ]
+            zenginlestirilmis = [f.result() for f in futures if f.result() is not None]
+
+
+        if zenginlestirilmis:
+            return {
+                "kaynak": "veritabani_rag",
+                "tarifler": zenginlestirilmis,
+                "kullanilan_malzemeler": giris.malzemeler,
+                "kisi_sayisi": giris.kisi_sayisi
+            }
+
     malzeme_listesi = ", ".join(giris.malzemeler)
- 
+
     hedef_mesaj = {
         "kilo_verme": "Düşük kalorili, yüksek proteinli ve tok tutan tarifler öner.",
         "kas_kazanma": "Yüksek proteinli, karbonhidrat dengeli tarifler öner.",
         "form_koruma": "Dengeli makro besinlerle sağlıklı tarifler öner.",
         "normal": "Lezzetli ve pratik tarifler öner."
     }.get(giris.hedef, "Lezzetli ve pratik tarifler öner.")
- 
+
+    diyet_mesaj = {
+        "vejetaryen": "Et, tavuk, balık KULLANMA. Sebze, süt ürünü, yumurta, bakliyat ağırlıklı tarifler öner.",
+        "vegan": "Et, tavuk, balık, süt ürünü, yumurta, bal gibi hiçbir hayvansal ürün KULLANMA.",
+        "glutensiz": "Buğday, arpa, çavdar, un, ekmek, makarna gibi gluten içeren malzemeler KULLANMA.",
+        "ketojenik": "Karbonhidratı çok düşük, yağ ve protein ağırlıklı tarifler öner. Pirinç, ekmek, patates, şeker kullanma.",
+        "normal": "Herhangi bir kısıtlama yok, dengeli ve çeşitli tarifler öner."
+    }.get(giris.diyet, "Herhangi bir kısıtlama yok, dengeli ve çeşitli tarifler öner.")
+
+    alerjen_uyarisi = ""
+    if giris.alerjenler:
+        alerjen_uyarisi = f"\nKullanıcının alerjileri: {', '.join(giris.alerjenler)} — BU MALZEMELERİ KESİNLİKLE KULLANMA."
+
     prompt = f"""
 Sen Türkiye'nin en iyi aşçısı ve diyetisyenisin. Her zaman Türkçe yanıt verirsin.
- 
+
 Aşağıdaki bilgilere göre 3 farklı yemek tarifi öner.
- 
+
 Mevcut malzemeler: {malzeme_listesi}
 Kişi sayısı: {giris.kisi_sayisi}
 Maksimum hazırlık süresi: {giris.sure_dakika} dakika
-Diyet tercihi: {giris.diyet}
+Diyet kısıtlaması: {diyet_mesaj}
 Kullanıcı hedefi: {hedef_mesaj}
- 
-Her tarif için şu formatta yanıt ver:
- 
-🍽️ TARİF ADI
-📝 Malzemeler ve Miktarlar:
-- [malzeme]: [miktar]
- 
-👨‍🍳 Yapılış:
-1. [adım]
- 
-📊 Besin Değerleri (tahmini, 1 porsiyon):
-- Kalori: X kcal
-- Protein: X g
-- Karbonhidrat: X g
-- Yağ: X g
- 
-⏱️ Hazırlık Süresi: X dakika
-💡 İpucu: [kısa bir öneri]
- 
----
+Öğün: {giris.ogun if giris.ogun != "belirtilmemiş" else "herhangi bir öğün için uygun"}{alerjen_uyarisi}
+
+ÖNEMLİ: besin_degerleri alanındaki kalori, protein, karbonhidrat ve yağ değerlerini
+TÜM TARİF İÇİN DEĞİL, KİŞİ BAŞINA (1 porsiyon) hesapla.
+
+SADECE şu JSON formatında yanıt ver (bir liste içinde 3 tarif objesi), başka açıklama ekleme:
+[
+  {{
+    "tarif_adi": "...",
+    "kategori": "...",
+    "zorluk": "...",
+    "porsiyon": {giris.kisi_sayisi},
+    "hazirlik_suresi_dk": 0,
+    "pisirme_suresi_dk": 0,
+    "malzemeler": [
+      {{"ad": "...", "miktar": "..."}}
+    ],
+    "yapilis_adimlari": ["...", "..."],
+    "besin_degerleri": {{"kalori": 0, "protein": 0, "karbonhidrat": 0, "yag": 0}},
+    "hedef_onerisi": "..."
+  }}
+]
 """
- 
+
     yanit = ai_yanit(prompt)
+    temiz = yanit.strip().replace("```json", "").replace("```", "").strip()
+    try:
+        tarifler = json.loads(temiz)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=500, detail="AI yanıtı işlenemedi, tekrar deneyin.")
+
     return {
         "kaynak": "gemini",
-        "tarifler": yanit,
+        "tarifler": tarifler,
         "kullanilan_malzemeler": giris.malzemeler,
         "kisi_sayisi": giris.kisi_sayisi
     }
- 
 
 
 @app.post("/makro-hesapla")
@@ -271,41 +388,39 @@ async def market_listesi(giris: MalzemeGirisi):
     malzeme_listesi = ", ".join(giris.malzemeler)
 
     prompt = f"""
-Sen bir beslenme uzmanı ve ekonomik alışveriş danışmanısın. Türkiye piyasa fiyatlarını bilerek öneri yaparsın. Türkçe yanıt verirsin.
+Sen bir beslenme uzmanı ve ekonomik alışveriş danışmanısın. Türkiye piyasa fiyatlarını bilerek öneri yaparsın.
 
 Kullanıcının evinde şu malzemeler var: {malzeme_listesi}
 Kişi sayısı: {giris.kisi_sayisi}
 Diyet tercihi: {giris.diyet}
 Hedef: {giris.hedef}
 
-1 haftalık dengeli beslenme planı için eksik malzemeleri belirle ve market listesi oluştur.
+1 haftalık dengeli beslenme planı için eksik malzemeleri belirle.
 
-🛒 HAFTALIK MARKET LİSTESİ
+SADECE aşağıdaki JSON formatında yanıt ver, başka açıklama ekleme:
+{{
+  "eksik_malzemeler": [
+    {{"ad": "tavuk göğsü", "kategori": "et_protein", "miktar": "500 gram", "tahmini_fiyat": "80-100 TL"}},
+    {{"ad": "ıspanak", "kategori": "sebze_meyve", "miktar": "1 demet", "tahmini_fiyat": "15-20 TL"}}
+  ],
+  "tahmini_toplam_butce": "300-400 TL"
+}}
 
-✅ Mevcut Malzemeler: [listele]
-
-❌ Eksik / Önerilen Malzemeler:
-
-🥩 Et & Protein:
-- [malzeme] - [tahmini miktar] - [tahmini fiyat aralığı]
-
-🥦 Sebze & Meyve:
-- [malzeme] - [tahmini miktar]
-
-🥛 Süt Ürünleri:
-- [malzeme] - [tahmini miktar]
-
-🌾 Tahıl & Kuru Bakliyat:
-- [malzeme] - [tahmini miktar]
-
-🫙 Diğer:
-- [malzeme] - [tahmini miktar]
-
-💰 Tahmini Toplam Bütçe: X - Y TL
+Kategori değerleri şunlardan biri olmalı: et_protein, sebze_meyve, sut_urunleri, tahil_bakliyat, diger
 """
 
     yanit = ai_yanit(prompt)
-    return {"market_listesi": yanit}
+    temiz = yanit.strip().replace("```json", "").replace("```", "").strip()
+    try:
+        parsed = json.loads(temiz)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=500, detail="AI yanıtı işlenemedi, tekrar deneyin.")
+
+    return {
+        "eksik_malzemeler": parsed.get("eksik_malzemeler", []),
+        "tahmini_toplam_butce": parsed.get("tahmini_toplam_butce"),
+        "mevcut_malzemeler": giris.malzemeler
+    }
 
 class MalzemeTaniRequest(BaseModel):
     image: str  # Base64 string
