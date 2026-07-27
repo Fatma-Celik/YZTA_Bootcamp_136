@@ -54,8 +54,9 @@ class MalzemeGirisi(BaseModel):
     alerjenler: list[str] = []  # örn: ["fıstık", "laktoz", "gluten"]
 
 class YemekFotografi(BaseModel):
-    aciklama: str
-    ogun: str = "öğle"
+    aciklama: str = ""
+    image: str = ""
+    ogun: str = "belirtilmemiş"  # kahvalti, ogle, aksam, ara_ogun
 
 class KullanicıProfili(BaseModel):
     kilo: float
@@ -318,30 +319,62 @@ SADECE şu JSON formatında yanıt ver (bir liste içinde 3 tarif objesi), başk
 
 @app.post("/makro-hesapla")
 async def makro_hesapla(yemek: YemekFotografi):
-    prompt = f"""
-Sen bir diyetisyen ve beslenme uzmanısın. Türkçe yanıt verirsin.
+    if not yemek.aciklama and not yemek.image:
+        raise HTTPException(status_code=400, detail="Yemek açıklaması veya fotoğrafı gerekli.")
 
-Kullanıcı şu yemeği yedi: {yemek.aciklama}
-Öğün: {yemek.ogun}
+    ogun_metni = yemek.ogun if yemek.ogun != "belirtilmemiş" else "herhangi bir öğün"
 
-Tahmini besin değerlerini hesapla ve şu formatta yanıt ver:
-
-🍱 YEMEK ANALİZİ
-Tespit edilen yemek: [yemek adı]
-
-📊 Besin Değerleri (tahmini, 1 porsiyon):
-- Kalori: X kcal
-- Protein: X g
-- Karbonhidrat: X g
-- Yağ: X g
-- Lif: X g
-
-✅ Değerlendirme: [bu yemeğin sağlıklı beslenmedeki yeri hakkında kısa yorum]
-💡 Öneri: [daha sağlıklı hale getirmek için 1-2 öneri]
+    json_format_talimati = """
+SADECE şu JSON formatında yanıt ver, başka açıklama ekleme:
+{
+  "yemek_adi": "...",
+  "ogun": "...",
+  "besin_degerleri": {
+    "kalori": 0,
+    "protein": 0,
+    "karbonhidrat": 0,
+    "yag": 0,
+    "lif": 0
+  },
+  "degerlendirme": "...",
+  "oneri": "..."
+}
 """
 
-    yanit = ai_yanit(prompt)
-    return {"analiz": yanit}
+    if yemek.image:
+        try:
+            header, encoded = yemek.image.split(",", 1) if "," in yemek.image else ("", yemek.image)
+            image_bytes = base64.b64decode(encoded)
+        except Exception:
+            raise HTTPException(status_code=400, detail="Geçersiz base64 formatı.")
+
+        prompt = f"""
+Sen bir diyetisyen ve beslenme uzmanısın.
+Bu fotoğraftaki yemeği analiz et, ne olduğunu tespit et ve besin değerlerini tahmin et.
+Öğün: {ogun_metni}
+{f"Ek açıklama: {yemek.aciklama}" if yemek.aciklama else ""}
+
+{json_format_talimati}
+"""
+        yanit = ai_yanit_gorsel(prompt, image_bytes, "image/jpeg")
+
+    else:
+        prompt = f"""
+Sen bir diyetisyen ve beslenme uzmanısın.
+Kullanıcı şu yemeği yedi: {yemek.aciklama}
+Öğün: {ogun_metni}
+
+{json_format_talimati}
+"""
+        yanit = ai_yanit(prompt)
+
+    temiz = yanit.strip().replace("```json", "").replace("```", "").strip()
+    try:
+        sonuc = json.loads(temiz)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=500, detail="AI yanıtı işlenemedi, tekrar deneyin.")
+
+    return sonuc
 
 
 @app.post("/gunluk-kalori")
