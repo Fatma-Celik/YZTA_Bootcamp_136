@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,16 +10,18 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
-  ActivityIndicator,
+  Animated,
+  Easing,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import LottieView from 'lottie-react-native';
 import { useRecipeFlow } from '@/hooks/useRecipeFlow';
 import { BASE_URL, ENDPOINTS } from '@/constants/ApiConfig';
 
 // ─────────── Dropdown Seçenekleri ───────────
-const DIYET_OPTIONS = ['normal'] as const;
+const DIYET_OPTIONS = ['normal', 'vejetaryen', 'vegan', 'glutensiz', 'ketojenik'] as const;
 const HEDEF_OPTIONS = ['normal'] as const;
 
 type DiyetOption = (typeof DIYET_OPTIONS)[number];
@@ -27,6 +29,10 @@ type HedefOption = (typeof HEDEF_OPTIONS)[number];
 
 const DIYET_LABELS: Record<DiyetOption, string> = {
   normal: 'Normal',
+  vejetaryen: 'Vejetaryen',
+  vegan: 'Vegan',
+  glutensiz: 'Glutensiz',
+  ketojenik: 'Ketojenik',
 };
 
 const HEDEF_LABELS: Record<HedefOption, string> = {
@@ -426,6 +432,32 @@ export default function RecipeDetailsScreen() {
   // Loading state
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Pulse animation for loading text
+  const pulseAnim = useRef(new Animated.Value(0.4)).current;
+
+  useEffect(() => {
+    if (isSubmitting) {
+      const pulse = Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 1200,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 0.4,
+            duration: 1200,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      pulse.start();
+      return () => pulse.stop();
+    }
+  }, [isSubmitting]);
+
   // Validation
   const kisiNum = parseFloat(kisiSayisi);
   const sureNum = parseFloat(sureDakika);
@@ -462,7 +494,7 @@ export default function RecipeDetailsScreen() {
 
       const data = await response.json();
       console.log('[RecipeDetails] /tarif-oner yanıtı:', JSON.stringify(data, null, 2));
-
+      
       if (!response.ok) {
         console.error('[RecipeDetails] API hatası, status:', response.status, data);
         Alert.alert('API Hatası', `Sunucu hatası: ${response.status}`);
@@ -486,6 +518,71 @@ export default function RecipeDetailsScreen() {
       setIsSubmitting(false);
     }
   };
+
+  // ─────── Loading / Cooking Animation Screen ───────
+  if (isSubmitting) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#0F172A' }}>
+        <StatusBar barStyle="light-content" />
+        <View
+          style={{
+            flex: 1,
+            alignItems: 'center',
+            justifyContent: 'center',
+            paddingHorizontal: 32,
+          }}
+        >
+          {/* Animation Container */}
+          <View
+            style={{
+              width: 260,
+              height: 260,
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: 130,
+              backgroundColor: 'rgba(255, 107, 53, 0.04)',
+              overflow: 'hidden',
+            }}
+          >
+            <LottieView
+              source={require('@/assets/animations/cookingAnimation.json')}
+              autoPlay
+              loop
+              style={{ width: '85%', height: '85%' }}
+              resizeMode="contain"
+            />
+          </View>
+
+          {/* Animated Text */}
+          <Animated.Text
+            style={{
+              color: '#F1F5F9',
+              fontSize: 20,
+              fontWeight: '700',
+              marginTop: 36,
+              letterSpacing: -0.3,
+              opacity: pulseAnim,
+            }}
+          >
+            Tarif Üretiliyor...
+          </Animated.Text>
+
+          <Text
+            style={{
+              color: '#64748B',
+              fontSize: 14,
+              fontWeight: '500',
+              marginTop: 10,
+              textAlign: 'center',
+              lineHeight: 20,
+            }}
+          >
+            AI sizin için özel tarifler{'\n'}hazırlıyor
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#0F172A' }} edges={['bottom']}>
@@ -597,17 +694,13 @@ export default function RecipeDetailsScreen() {
               elevation: hasAnyError || isSubmitting ? 0 : 6,
             }}
           >
-            {isSubmitting ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <Ionicons
-                name="sparkles"
-                size={20}
-                color={
-                  hasAnyError ? 'rgba(255,255,255,0.5)' : '#fff'
-                }
-              />
-            )}
+            <Ionicons
+              name="sparkles"
+              size={20}
+              color={
+                hasAnyError ? 'rgba(255,255,255,0.5)' : '#fff'
+              }
+            />
             <Text
               style={{
                 color:
