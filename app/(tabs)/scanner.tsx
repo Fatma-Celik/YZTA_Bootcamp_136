@@ -161,7 +161,7 @@ export default function TabScannerScreen() {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            aciklama: imageBase64,
+            image: imageBase64,
             ogun: meal,
           }),
         });
@@ -176,13 +176,11 @@ export default function TabScannerScreen() {
           setCurrentAction(null);
           return;
         }
-        /*
         // Save to context and navigate to results screen
         setMacroResponse(data);
         setIsAnalyzing(false);
         setCurrentAction(null);
         router.push('/scanner/macro-results');
-        */
       } catch (error) {
         console.error('[MACRO_CALC] Fetch hatası:', error);
         Alert.alert('Bağlantı Hatası', 'Sunucuya ulaşılamadı. İnternet bağlantınızı kontrol edin.');

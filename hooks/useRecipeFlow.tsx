@@ -8,6 +8,27 @@ export interface Ingredient {
   birim: string;
 }
 
+export interface BackendRecipe {
+  tarif_adi: string;
+  kategori: string;
+  zorluk: string;
+  porsiyon: number;
+  hazirlik_suresi_dk: number;
+  pisirme_suresi_dk: number;
+  malzemeler: Array<{
+    ad: string;
+    miktar: string;
+  }>;
+  yapilis_adimlari: string[];
+  besin_degerleri: {
+    kalori: number;
+    protein: number;
+    karbonhidrat: number;
+    yag: number;
+  };
+  hedef_onerisi: string;
+}
+
 export interface MacroResponse {
   yemek_adi: string;
   ogun: string;
@@ -25,8 +46,10 @@ export interface MacroResponse {
 interface RecipeFlowContextType {
   ingredients: Ingredient[];
   setIngredients: (items: Ingredient[]) => void;
-  recipeResponse: string | null;
-  setRecipeResponse: (response: string | null) => void;
+  recipeResponse: BackendRecipe[] | null;
+  setRecipeResponse: (response: BackendRecipe[] | null) => void;
+  selectedRecipe: BackendRecipe | null;
+  setSelectedRecipe: (recipe: BackendRecipe | null) => void;
   macroResponse: MacroResponse | null;
   setMacroResponse: (response: MacroResponse | null) => void;
   clearAll: () => void;
@@ -37,6 +60,8 @@ const RecipeFlowContext = createContext<RecipeFlowContextType>({
   setIngredients: () => {},
   recipeResponse: null,
   setRecipeResponse: () => {},
+  selectedRecipe: null,
+  setSelectedRecipe: () => {},
   macroResponse: null,
   setMacroResponse: () => {},
   clearAll: () => {},
@@ -44,12 +69,14 @@ const RecipeFlowContext = createContext<RecipeFlowContextType>({
 
 export function RecipeFlowProvider({ children }: { children: React.ReactNode }) {
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
-  const [recipeResponse, setRecipeResponse] = useState<string | null>(null);
+  const [recipeResponse, setRecipeResponse] = useState<BackendRecipe[] | null>(null);
+  const [selectedRecipe, setSelectedRecipe] = useState<BackendRecipe | null>(null);
   const [macroResponse, setMacroResponse] = useState<MacroResponse | null>(null);
 
   const clearAll = () => {
     setIngredients([]);
     setRecipeResponse(null);
+    setSelectedRecipe(null);
     setMacroResponse(null);
   };
 
@@ -60,6 +87,8 @@ export function RecipeFlowProvider({ children }: { children: React.ReactNode }) 
         setIngredients,
         recipeResponse,
         setRecipeResponse,
+        selectedRecipe,
+        setSelectedRecipe,
         macroResponse,
         setMacroResponse,
         clearAll,

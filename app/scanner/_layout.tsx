@@ -27,6 +27,10 @@ export default function ScannerLayout() {
         name="macro-results"
         options={{ title: 'Besin Değerleri' }}
       />
+      <Stack.Screen
+        name="recipe-cooking"
+        options={{ title: 'Tarif Modu' }}
+      />
     </Stack>
   );
 }

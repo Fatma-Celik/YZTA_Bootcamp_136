@@ -22,10 +22,12 @@ import { BASE_URL, ENDPOINTS } from '@/constants/ApiConfig';
 
 // ─────────── Dropdown Seçenekleri ───────────
 const DIYET_OPTIONS = ['normal', 'vejetaryen', 'vegan', 'glutensiz', 'ketojenik'] as const;
-const HEDEF_OPTIONS = ['normal'] as const;
+const HEDEF_OPTIONS = ['normal','kilo_verme','kas_kazanma','form_koruma'] as const;
+const OGUN_OPTIONS = ['kahvalti', 'ogle', 'aksam', 'ara_ogun'] as const;
 
 type DiyetOption = (typeof DIYET_OPTIONS)[number];
 type HedefOption = (typeof HEDEF_OPTIONS)[number];
+type OgunOption = (typeof OGUN_OPTIONS)[number];
 
 const DIYET_LABELS: Record<DiyetOption, string> = {
   normal: 'Normal',
@@ -37,6 +39,16 @@ const DIYET_LABELS: Record<DiyetOption, string> = {
 
 const HEDEF_LABELS: Record<HedefOption, string> = {
   normal: 'Normal',
+  kilo_verme: 'Kilo Verme',
+  kas_kazanma: 'Kas Kazanma',
+  form_koruma: 'Form Koruma', 
+};
+
+const OGUN_LABELS: Record<OgunOption, string> = {
+  kahvalti: 'Kahvaltı',
+  ogle: 'Öğle',
+  aksam: 'Akşam',
+  ara_ogun: 'Ara Öğün',
 };
 
 // ─────────── Genel Dropdown Modal ───────────
@@ -53,7 +65,7 @@ function DropdownModal<T extends string>({
   title: string;
   options: readonly T[];
   labels: Record<T, string>;
-  selected: T;
+  selected: T | null;
   onSelect: (v: T) => void;
   onClose: () => void;
 }) {
@@ -365,12 +377,14 @@ function DropdownRow({
   label,
   value,
   onPress,
+  hasError,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   iconColor: string;
   label: string;
   value: string;
   onPress: () => void;
+  hasError?: boolean;
 }) {
   return (
     <TouchableOpacity
@@ -381,7 +395,7 @@ function DropdownRow({
         borderRadius: 16,
         padding: 16,
         borderWidth: 1,
-        borderColor: 'rgba(71, 85, 105, 0.3)',
+        borderColor: hasError ? 'rgba(239, 68, 68, 0.5)' : 'rgba(71, 85, 105, 0.3)',
         flexDirection: 'row',
         alignItems: 'center',
       }}
@@ -424,10 +438,15 @@ export default function RecipeDetailsScreen() {
   const [sureDakika, setSureDakika] = useState('30');
   const [diyet, setDiyet] = useState<DiyetOption>('normal');
   const [hedef, setHedef] = useState<HedefOption>('normal');
+  const [ogun, setOgun] = useState<OgunOption | null>(null);
 
   // Dropdown visibility
   const [diyetModalVisible, setDiyetModalVisible] = useState(false);
   const [hedefModalVisible, setHedefModalVisible] = useState(false);
+  const [ogunModalVisible, setOgunModalVisible] = useState(false);
+
+  // Validation trigger for 'ogun' selection
+  const [showOgunError, setShowOgunError] = useState(false);
 
   // Loading state
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -466,7 +485,10 @@ export default function RecipeDetailsScreen() {
   const hasAnyError = hasKisiError || hasSureError;
 
   const handleSubmit = async () => {
-    if (hasAnyError) return;
+    if (!ogun) {
+      setShowOgunError(true);
+    }
+    if (hasAnyError || !ogun) return;
 
     // Malzemeleri "ad miktar birim" formatında birleştir
     const malzemelerFormatted = ingredients.map(
@@ -479,6 +501,7 @@ export default function RecipeDetailsScreen() {
       sure_dakika: parseInt(sureDakika, 10),
       diyet,
       hedef,
+      ogun,
     };
 
     setIsSubmitting(true);
@@ -548,7 +571,7 @@ export default function RecipeDetailsScreen() {
               source={require('@/assets/animations/cookingAnimation.json')}
               autoPlay
               loop
-              style={{ width: '85%', height: '85%' }}
+              style={{ width: '115%', height: '115%' }}
               resizeMode="contain"
             />
           </View>
@@ -660,6 +683,16 @@ export default function RecipeDetailsScreen() {
             value={HEDEF_LABELS[hedef]}
             onPress={() => setHedefModalVisible(true)}
           />
+
+          {/* ── Öğün ── */}
+          <DropdownRow
+            icon="restaurant"
+            iconColor="#EC4899"
+            label="Öğün"
+            value={ogun ? OGUN_LABELS[ogun] : 'Öğün Seçiniz'}
+            onPress={() => setOgunModalVisible(true)}
+            hasError={showOgunError && !ogun}
+          />
         </ScrollView>
 
         {/* ── Bottom Button ── */}
@@ -735,6 +768,18 @@ export default function RecipeDetailsScreen() {
         selected={hedef}
         onSelect={setHedef}
         onClose={() => setHedefModalVisible(false)}
+      />
+      <DropdownModal
+        visible={ogunModalVisible}
+        title="Öğün Seçin"
+        options={OGUN_OPTIONS}
+        labels={OGUN_LABELS}
+        selected={ogun}
+        onSelect={(val) => {
+          setOgun(val);
+          setShowOgunError(false);
+        }}
+        onClose={() => setOgunModalVisible(false)}
       />
     </SafeAreaView>
   );

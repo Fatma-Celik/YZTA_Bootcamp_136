@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -8,142 +8,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useRecipeFlow } from '@/hooks/useRecipeFlow';
-
-// ─────────── Tipler ───────────
-interface NutritionInfo {
-  kalori: string;
-  protein: string;
-  karbonhidrat: string;
-  yag: string;
-}
-
-interface ParsedRecipe {
-  isim: string;
-  malzemeler: string[];
-  yapilis: string[];
-  besinDegerleri: NutritionInfo;
-  sure: string;
-  ipucu: string;
-}
-
-// ─────────── Parsing Yardımcıları ───────────
-function parseRecipes(rawText: string): ParsedRecipe[] {
-  // --- ile böl, boş blokları filtrele
-  const blocks = rawText.split('---').filter((b) => b.trim().length > 0);
-
-  const recipes: ParsedRecipe[] = [];
-
-  for (const block of blocks) {
-    // 🍽️ emojisi yoksa bu bir tarif bloğu değil (giriş paragrafı olabilir)
-    if (!block.includes('🍽️')) continue;
-
-    const recipe = parseRecipeBlock(block.trim());
-    if (recipe) recipes.push(recipe);
-  }
-
-  return recipes;
-}
-
-function parseRecipeBlock(block: string): ParsedRecipe | null {
-  try {
-    // ── İsim: 🍽️ ile başlayan satırı bütünüyle çek ve ** işaretlerini temizle ──
-    const nameMatch = block.match(/🍽️\s*(.+?)(?:\n|$)/);
-    const isim = nameMatch ? nameMatch[1].replace(/\*\*/g, '').trim() : 'Tarif';
-
-    // ── Malzemeler: 📝 ile 👨‍🍳 arasından çek ──
-    const malzemelerSection = extractBetween(block, '📝', '👨‍🍳') ||
-                              extractBetween(block, '📝', '👨🍳');
-    const malzemeler = malzemelerSection
-      ? malzemelerSection
-          .split('\n')
-          .filter((line) => {
-            const trimmed = line.trim();
-            return trimmed.startsWith('-') || trimmed.startsWith('*') || trimmed.startsWith('•');
-          })
-          .map((line) => line.trim().replace(/^[-*•]\s*/, ''))
-      : [];
-
-    // ── Yapılış: 👨‍🍳 (veya 👨🍳) ile 📊 arasından çek ──
-    const yapilisSection = extractBetween(block, '👨‍🍳', '📊') ||
-                           extractBetween(block, '👨🍳', '📊');
-    let yapilis = yapilisSection
-      ? yapilisSection
-          .split('\n')
-          .map((line) => line.trim())
-          .filter((line) => line.length > 0)
-      : [];
-
-    // Eğer numaralı liste stili varsa temizle, yoksa normal satırları al
-    const numberedSteps = yapilis.filter((line) => /^\d+\./.test(line));
-    if (numberedSteps.length > 0) {
-      yapilis = numberedSteps.map((line) => line.replace(/^\d+\.\s*/, ''));
-    } else {
-      yapilis = yapilis.map((line) => line.replace(/^[-*•]\s*/, ''));
-    }
-
-    // ── Besin Değerleri: 📊 ile ⏱️ arasından çek ──
-    const besinSection = extractBetween(block, '📊', '⏱️');
-    const besinDegerleri = parseNutrition(besinSection || '');
-
-    // ── Hazırlık Süresi: ⏱️ satırından çek ──
-    const sureMatch = block.match(/⏱️\s*(?:Hazırlık Süresi:?\s*)(.+?)(?:\n|$)/);
-    const sure = sureMatch ? sureMatch[1].trim() : '';
-
-    // ── İpucu: 💡 satırından çek ──
-    const ipucuMatch = block.match(/💡\s*(?:İpucu:?\s*)(.+?)$/s);
-    const ipucu = ipucuMatch ? ipucuMatch[1].trim() : '';
-
-    return { isim, malzemeler, yapilis, besinDegerleri, sure, ipucu };
-  } catch (e) {
-    console.error('[parseRecipeBlock] Hata:', e);
-    return null;
-  }
-}
-
-function extractBetween(text: string, startMarker: string, endMarker: string): string | null {
-  const startIdx = text.indexOf(startMarker);
-  if (startIdx === -1) return null;
-
-  const afterStart = startIdx + startMarker.length;
-  const endIdx = text.indexOf(endMarker, afterStart);
-  if (endIdx === -1) return text.slice(afterStart);
-
-  return text.slice(afterStart, endIdx);
-}
-
-function parseNutrition(section: string): NutritionInfo {
-  const result: NutritionInfo = {
-    kalori: '0',
-    protein: '0',
-    karbonhidrat: '0',
-    yag: '0',
-  };
-
-  const lines = section.split('\n').filter((l) => {
-    const trimmed = l.trim();
-    return trimmed.startsWith('-') || trimmed.startsWith('*') || trimmed.startsWith('•') || trimmed.includes(':');
-  });
-
-  for (const line of lines) {
-    const lower = line.toLowerCase();
-    const valMatch = line.match(/:\s*(.+)/);
-    const val = valMatch ? valMatch[1].trim() : '0';
-
-    if (lower.includes('kalori')) result.kalori = val;
-    else if (lower.includes('protein')) result.protein = val;
-    else if (lower.includes('karbonhidrat')) result.karbonhidrat = val;
-    else if (lower.includes('yağ') || lower.includes('yag')) result.yag = val;
-  }
-
-  return result;
-}
-
-// Besin değerinden sayısal kısmı çek (ör: "65 kcal" → 65)
-function extractNumericValue(str: string): number {
-  const match = str.match(/[\d.,]+/);
-  return match ? parseFloat(match[0].replace(',', '.')) : 0;
-}
+import { useRouter } from 'expo-router';
+import { useRecipeFlow, BackendRecipe } from '@/hooks/useRecipeFlow';
 
 // ─────────── Besin Değeri Progress Bar ───────────
 function NutritionBar({
@@ -154,13 +20,12 @@ function NutritionBar({
   unit,
 }: {
   label: string;
-  value: string;
+  value: number;
   maxValue: number;
   color: string;
   unit?: string;
 }) {
-  const numericVal = extractNumericValue(value);
-  const percentage = maxValue > 0 ? Math.min((numericVal / maxValue) * 100, 100) : 0;
+  const percentage = maxValue > 0 ? Math.min((value / maxValue) * 100, 100) : 0;
 
   return (
     <View style={{ marginBottom: 10 }}>
@@ -175,7 +40,7 @@ function NutritionBar({
           {label}
         </Text>
         <Text style={{ color: '#CBD5E1', fontSize: 12, fontWeight: '700' }}>
-          {value}
+          {value} {unit}
         </Text>
       </View>
       <View
@@ -200,32 +65,42 @@ function NutritionBar({
 }
 
 // ─────────── Tarif Kartı ───────────
-function RecipeCard({ recipe, index }: { recipe: ParsedRecipe; index: number }) {
-  const [expanded, setExpanded] = useState(false);
+function RecipeCard({ recipe, index }: { recipe: BackendRecipe; index: number }) {
+  const router = useRouter();
+  const { setSelectedRecipe } = useRecipeFlow();
 
   // Farklı accent renkleri
   const accentColors = ['#FF6B35', '#10B981', '#818CF8', '#F59E0B', '#EF4444'];
   const accent = accentColors[index % accentColors.length];
 
+  // Süre metni hazırlama
+  const sureMetni = [
+    recipe.hazirlik_suresi_dk > 0 ? `Hazırlık: ${recipe.hazirlik_suresi_dk} dk` : null,
+    recipe.pisirme_suresi_dk > 0 ? `Pişirme: ${recipe.pisirme_suresi_dk} dk` : null,
+  ]
+    .filter(Boolean)
+    .join(' • ');
+
+  const handleUseRecipe = () => {
+    setSelectedRecipe(recipe);
+    router.push('/scanner/recipe-cooking');
+  };
+
   return (
-    <TouchableOpacity
-      activeOpacity={0.85}
-      onPress={() => setExpanded(!expanded)}
+    <View
       style={{
         backgroundColor: '#1E293B',
         borderRadius: 20,
-        marginBottom: 14,
+        marginBottom: 16,
         borderWidth: 1,
-        borderColor: expanded
-          ? `${accent}40`
-          : 'rgba(71, 85, 105, 0.3)',
+        borderColor: 'rgba(71, 85, 105, 0.3)',
         overflow: 'hidden',
       }}
     >
       {/* ── Header ── */}
       <View style={{ padding: 16 }}>
-        {/* Tarif İsmi */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+        {/* Tarif İsmi & İkon */}
+        <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 8 }}>
           <View
             style={{
               width: 40,
@@ -249,9 +124,9 @@ function RecipeCard({ recipe, index }: { recipe: ParsedRecipe; index: number }) 
               }}
               numberOfLines={2}
             >
-              {recipe.isim}
+              {recipe.tarif_adi}
             </Text>
-            {recipe.sure ? (
+            {sureMetni ? (
               <Text
                 style={{
                   color: '#64748B',
@@ -260,23 +135,87 @@ function RecipeCard({ recipe, index }: { recipe: ParsedRecipe; index: number }) 
                   marginTop: 3,
                 }}
               >
-                ⏱️ {recipe.sure}
+                ⏱️ {sureMetni}
               </Text>
             ) : null}
+
+            {/* Badges (Kategori, Zorluk, Porsiyon) */}
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+              {recipe.kategori ? (
+                <View
+                  style={{
+                    backgroundColor: 'rgba(129, 140, 248, 0.15)',
+                    paddingHorizontal: 8,
+                    paddingVertical: 3,
+                    borderRadius: 6,
+                    borderWidth: 1,
+                    borderColor: 'rgba(129, 140, 248, 0.3)',
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: '#818CF8',
+                      fontSize: 11,
+                      fontWeight: '600',
+                      textTransform: 'capitalize',
+                    }}
+                  >
+                    {recipe.kategori}
+                  </Text>
+                </View>
+              ) : null}
+
+              {recipe.zorluk ? (
+                <View
+                  style={{
+                    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                    paddingHorizontal: 8,
+                    paddingVertical: 3,
+                    borderRadius: 6,
+                    borderWidth: 1,
+                    borderColor: 'rgba(16, 185, 129, 0.3)',
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: '#10B981',
+                      fontSize: 11,
+                      fontWeight: '600',
+                      textTransform: 'capitalize',
+                    }}
+                  >
+                    {recipe.zorluk}
+                  </Text>
+                </View>
+              ) : null}
+
+              {recipe.porsiyon ? (
+                <View
+                  style={{
+                    backgroundColor: 'rgba(236, 72, 153, 0.15)',
+                    paddingHorizontal: 8,
+                    paddingVertical: 3,
+                    borderRadius: 6,
+                    borderWidth: 1,
+                    borderColor: 'rgba(236, 72, 153, 0.3)',
+                  }}
+                >
+                  <Text style={{ color: '#EC4899', fontSize: 11, fontWeight: '600' }}>
+                    {recipe.porsiyon} Porsiyon
+                  </Text>
+                </View>
+              ) : null}
+            </View>
           </View>
-          <Ionicons
-            name={expanded ? 'chevron-up' : 'chevron-down'}
-            size={18}
-            color="#64748B"
-          />
         </View>
 
-        {/* ── Malzemeler ── */}
+        {/* ── Malzemeler Özet ── */}
         <View
           style={{
             backgroundColor: 'rgba(15, 23, 42, 0.6)',
             borderRadius: 12,
             padding: 12,
+            marginTop: 8,
             marginBottom: 12,
           }}
         >
@@ -290,7 +229,7 @@ function RecipeCard({ recipe, index }: { recipe: ParsedRecipe; index: number }) 
               marginBottom: 8,
             }}
           >
-            📝 Malzemeler
+            📝 Malzemeler ({recipe.malzemeler.length} Kalem)
           </Text>
           {recipe.malzemeler.map((m, idx) => (
             <View
@@ -321,7 +260,7 @@ function RecipeCard({ recipe, index }: { recipe: ParsedRecipe; index: number }) 
                   flex: 1,
                 }}
               >
-                {m}
+                {m.ad} - <Text style={{ color: '#94A3B8' }}>{m.miktar}</Text>
               </Text>
             </View>
           ))}
@@ -338,149 +277,78 @@ function RecipeCard({ recipe, index }: { recipe: ParsedRecipe; index: number }) 
             marginBottom: 8,
           }}
         >
-          📊 Besin Değerleri (1 porsiyon)
+          📊 Besin Değerleri ({recipe.porsiyon || 1} porsiyon)
         </Text>
 
         <NutritionBar
           label="Kalori"
-          value={recipe.besinDegerleri.kalori}
-          maxValue={500}
+          value={recipe.besin_degerleri?.kalori || 0}
+          maxValue={800}
           color="#FF6B35"
+          unit="kcal"
         />
         <NutritionBar
           label="Protein"
-          value={recipe.besinDegerleri.protein}
-          maxValue={50}
+          value={recipe.besin_degerleri?.protein || 0}
+          maxValue={80}
           color="#10B981"
+          unit="g"
         />
         <NutritionBar
           label="Karbonhidrat"
-          value={recipe.besinDegerleri.karbonhidrat}
-          maxValue={80}
+          value={recipe.besin_degerleri?.karbonhidrat || 0}
+          maxValue={120}
           color="#818CF8"
+          unit="g"
         />
         <NutritionBar
           label="Yağ"
-          value={recipe.besinDegerleri.yag}
-          maxValue={40}
+          value={recipe.besin_degerleri?.yag || 0}
+          maxValue={60}
           color="#F59E0B"
+          unit="g"
         />
-      </View>
 
-      {/* ── Yapılış (Expanded) ── */}
-      {expanded && (
-        <View
+        {/* ── Tarifi Kullan Butonu ── */}
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={handleUseRecipe}
           style={{
-            borderTopWidth: 1,
-            borderTopColor: 'rgba(71, 85, 105, 0.2)',
-            padding: 16,
+            backgroundColor: '#FF6B35',
+            borderRadius: 14,
+            paddingVertical: 14,
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexDirection: 'row',
+            gap: 8,
+            marginTop: 12,
+            shadowColor: '#FF6B35',
+            shadowOffset: { width: 0, height: 3 },
+            shadowOpacity: 0.2,
+            shadowRadius: 8,
+            elevation: 4,
           }}
         >
+          <Ionicons name="play" size={18} color="#FFF" />
           <Text
             style={{
-              color: '#94A3B8',
-              fontSize: 11,
+              color: '#FFF',
+              fontSize: 15,
               fontWeight: '700',
-              letterSpacing: 0.5,
-              textTransform: 'uppercase',
-              marginBottom: 12,
             }}
           >
-            👨‍🍳 Yapılış
+            Tarifi Kullan
           </Text>
-
-          {recipe.yapilis.map((step, idx) => (
-            <View
-              key={idx}
-              style={{
-                flexDirection: 'row',
-                marginBottom: idx < recipe.yapilis.length - 1 ? 12 : 0,
-                alignItems: 'flex-start',
-              }}
-            >
-              {/* Adım Numarası */}
-              <View
-                style={{
-                  width: 26,
-                  height: 26,
-                  borderRadius: 13,
-                  backgroundColor: `${accent}20`,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginRight: 10,
-                  marginTop: 1,
-                  flexShrink: 0,
-                }}
-              >
-                <Text
-                  style={{
-                    color: accent,
-                    fontSize: 12,
-                    fontWeight: '800',
-                  }}
-                >
-                  {idx + 1}
-                </Text>
-              </View>
-
-              {/* Adım İçeriği */}
-              <Text
-                style={{
-                  color: '#CBD5E1',
-                  fontSize: 14,
-                  fontWeight: '500',
-                  lineHeight: 20,
-                  flex: 1,
-                }}
-              >
-                {step}
-              </Text>
-            </View>
-          ))}
-
-          {/* İpucu */}
-          {recipe.ipucu ? (
-            <View
-              style={{
-                marginTop: 14,
-                backgroundColor: 'rgba(245, 158, 11, 0.08)',
-                borderRadius: 12,
-                padding: 12,
-                flexDirection: 'row',
-                alignItems: 'flex-start',
-                gap: 8,
-                borderWidth: 1,
-                borderColor: 'rgba(245, 158, 11, 0.2)',
-              }}
-            >
-              <Text style={{ fontSize: 14, marginTop: 1 }}>💡</Text>
-              <Text
-                style={{
-                  color: '#CBD5E1',
-                  fontSize: 13,
-                  fontWeight: '500',
-                  lineHeight: 19,
-                  flex: 1,
-                }}
-              >
-                {recipe.ipucu}
-              </Text>
-            </View>
-          ) : null}
-        </View>
-      )}
-    </TouchableOpacity>
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 }
 
 // ─────────── Ana Ekran ───────────
 export default function RecipeResultsScreen() {
   const { recipeResponse } = useRecipeFlow();
-
-  const recipes = useMemo(() => {
-    if (!recipeResponse) return [];
-    return parseRecipes(recipeResponse);
-  }, [recipeResponse]);
+  const recipes = recipeResponse || [];
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#0F172A' }} edges={['bottom']}>
@@ -529,7 +397,7 @@ export default function RecipeResultsScreen() {
                 marginTop: 2,
               }}
             >
-              {recipes.length} tarif üretildi — detaylar için karta dokunun
+              {recipes.length} tarif üretildi — "Tarifi Kullan" butonuna basarak pişirmeye başlayın
             </Text>
           </View>
         </View>
