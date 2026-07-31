@@ -6,6 +6,8 @@ import json
 import base64
 import re
 from concurrent.futures import ThreadPoolExecutor
+import chromadb
+import time
 from supabase import create_client
 
 try:
@@ -43,6 +45,13 @@ if SUPABASE_URL and SUPABASE_KEY:
         print(f"⚠️ Supabase istemcisi başlatılamadı: {e}")
 else:
     print("⚠️ SUPABASE_URL/SUPABASE_SERVICE_KEY bulunamadı. Veritabanı tarif araması devre dışı.")
+
+try:
+    chroma_client = chromadb.PersistentClient(path="./chroma_db")
+    hafiza_koleksiyonu = chroma_client.get_or_create_collection("kullanici_tercihleri")
+except Exception as e:
+    print(f"⚠️ ChromaDB başlatılamadı: {e}")
+    hafiza_koleksiyonu = None
  
 class MalzemeGirisi(BaseModel):
     malzemeler: list[str]
@@ -52,6 +61,7 @@ class MalzemeGirisi(BaseModel):
     hedef: str = "normal"
     ogun: str = "belirtilmemiş"  # kahvalti, ogle, aksam, ara_ogun
     alerjenler: list[str] = []  # örn: ["fıstık", "laktoz", "gluten"]
+    kullanici_id: str = ""
 
 class YemekFotografi(BaseModel):
     aciklama: str = ""
@@ -65,6 +75,18 @@ class KullanicıProfili(BaseModel):
     cinsiyet: str
     aktivite: str
     hedef: str
+
+class FavoriTarif(BaseModel):
+    kullanici_id: str
+    tarif_adi: str
+    kategori: str = ""
+    hazirlik_suresi_dk: int = 0
+    pisirme_suresi_dk: int = 0
+    malzemeler: list = []
+    yapilis_adimlari: list = []
+    besin_degerleri: dict = {}
+    hedef: str = "normal"
+    diyet: str = "normal"
 
 
 def ai_yanit(prompt: str) -> str:
@@ -155,6 +177,54 @@ def veritabanindan_tarif_bul(malzemeler: list[str], limit: int = 3, alerjenler: 
         print(f"⚠️ Veritabanı tarif araması başarısız: {e}")
         return []
 
+def hafizaya_kaydet(kullanici_id: str, tarif_adi: str, hedef: str, diyet: str, begenildi: bool = True):
+    """Kullanıcının favorilediği/geri bildirim verdiği tarifi ChromaDB'ye kaydeder."""
+    if not kullanici_id or hafiza_koleksiyonu is None:
+        return
+    try:
+        durum = "begenildi" if begenildi else "begenilmedi"
+        hafiza_koleksiyonu.add(
+            documents=[f"{tarif_adi} - hedef: {hedef} - diyet: {diyet} - {durum}"],
+            ids=[f"{kullanici_id}_{tarif_adi}_{int(time.time())}"],
+            metadatas=[{
+                "kullanici_id": kullanici_id,
+                "durum": durum,
+                "tarif_adi": tarif_adi
+            }]
+        )
+    except Exception as e:
+        print(f"⚠️ Hafızaya kaydetme başarısız: {e}")
+
+def gecmis_tercihleri_getir(kullanici_id: str, n: int = 5):
+    """Kullanıcının favori/beğenilen tariflerini ChromaDB'den çeker: {"begenilen": [...], "begenilmeyen": [...]}"""
+    if not kullanici_id or hafiza_koleksiyonu is None:
+        return {"begenilen": [], "begenilmeyen": []}
+
+    sonuc = {"begenilen": [], "begenilmeyen": []}
+    try:
+        begenilen_sonuc = hafiza_koleksiyonu.query(
+            query_texts=["beğenilen tarifler"],
+            n_results=n,
+            where={"$and": [{"kullanici_id": kullanici_id}, {"durum": "begenildi"}]}
+        )
+        if begenilen_sonuc["documents"] and begenilen_sonuc["documents"][0]:
+            sonuc["begenilen"] = begenilen_sonuc["documents"][0]
+    except Exception as e:
+        print(f"⚠️ Beğenilen tarifleri getirme başarısız: {e}")
+
+    try:
+        begenilmeyen_sonuc = hafiza_koleksiyonu.query(
+            query_texts=["beğenilmeyen tarifler"],
+            n_results=n,
+            where={"$and": [{"kullanici_id": kullanici_id}, {"durum": "begenilmedi"}]}
+        )
+        if begenilmeyen_sonuc["documents"] and begenilmeyen_sonuc["documents"][0]:
+            sonuc["begenilmeyen"] = begenilmeyen_sonuc["documents"][0]
+    except Exception as e:
+        print(f"⚠️ Beğenilmeyen tarifleri getirme başarısız: {e}")
+
+    return sonuc
+
 def tarif_formatla_ve_zenginlestir(db_tarif: dict, hedef: str, kisi_sayisi: int, ogun: str = "belirtilmemiş", diyet: str = "normal", alerjenler: list[str] = None) -> dict:
     """Veritabanından gelen tarifi Gemini ile zenginleştirir, eksikleri doldurur, standart JSON'a çevirir."""
 
@@ -228,6 +298,8 @@ async def root():
 async def tarif_oner(giris: MalzemeGirisi):
     temiz_malzemeler = [malzeme_adini_temizle(m) for m in giris.malzemeler]
 
+    gecmis_tercihler = gecmis_tercihleri_getir(giris.kullanici_id)
+
     db_tarifler = veritabanindan_tarif_bul(temiz_malzemeler, limit=3, alerjenler=giris.alerjenler)
 
     if len(db_tarifler) >= 2:
@@ -238,13 +310,13 @@ async def tarif_oner(giris: MalzemeGirisi):
             ]
             zenginlestirilmis = [f.result() for f in futures if f.result() is not None]
 
-
         if zenginlestirilmis:
             return {
                 "kaynak": "veritabani_rag",
                 "tarifler": zenginlestirilmis,
                 "kullanilan_malzemeler": giris.malzemeler,
-                "kisi_sayisi": giris.kisi_sayisi
+                "kisi_sayisi": giris.kisi_sayisi,
+                "gecmis_tercihler_kullanildi": len(gecmis_tercihler["begenilen"]) > 0 or len(gecmis_tercihler["begenilmeyen"]) > 0
             }
 
     malzeme_listesi = ", ".join(giris.malzemeler)
@@ -268,6 +340,12 @@ async def tarif_oner(giris: MalzemeGirisi):
     if giris.alerjenler:
         alerjen_uyarisi = f"\nKullanıcının alerjileri: {', '.join(giris.alerjenler)} — BU MALZEMELERİ KESİNLİKLE KULLANMA."
 
+    gecmis_bilgisi = ""
+    if gecmis_tercihler["begenilen"]:
+        gecmis_bilgisi += f"\nKullanıcının BEĞENDİĞİ/KULLANDIĞI tarifler: {', '.join(gecmis_tercihler['begenilen'])}. Benzer tarzda tarifler önermeye çalış."
+    if gecmis_tercihler["begenilmeyen"]:
+        gecmis_bilgisi += f"\nKullanıcının BEĞENMEDİĞİ tarifler: {', '.join(gecmis_tercihler['begenilmeyen'])}. Bu tarz tariflerden KAÇIN."
+
     prompt = f"""
 Sen Türkiye'nin en iyi aşçısı ve diyetisyenisin. Her zaman Türkçe yanıt verirsin.
 
@@ -278,7 +356,7 @@ Kişi sayısı: {giris.kisi_sayisi}
 Maksimum hazırlık süresi: {giris.sure_dakika} dakika
 Diyet kısıtlaması: {diyet_mesaj}
 Kullanıcı hedefi: {hedef_mesaj}
-Öğün: {giris.ogun if giris.ogun != "belirtilmemiş" else "herhangi bir öğün için uygun"}{alerjen_uyarisi}
+Öğün: {giris.ogun if giris.ogun != "belirtilmemiş" else "herhangi bir öğün için uygun"}{alerjen_uyarisi}{gecmis_bilgisi}
 
 ÖNEMLİ: besin_degerleri alanındaki kalori, protein, karbonhidrat ve yağ değerlerini
 TÜM TARİF İÇİN DEĞİL, KİŞİ BAŞINA (1 porsiyon) hesapla.
@@ -313,9 +391,62 @@ SADECE şu JSON formatında yanıt ver (bir liste içinde 3 tarif objesi), başk
         "kaynak": "gemini",
         "tarifler": tarifler,
         "kullanilan_malzemeler": giris.malzemeler,
-        "kisi_sayisi": giris.kisi_sayisi
+        "kisi_sayisi": giris.kisi_sayisi,
+        "gecmis_tercihler_kullanildi": len(gecmis_tercihler["begenilen"]) > 0 or len(gecmis_tercihler["begenilmeyen"]) > 0
     }
 
+@app.post("/favori-ekle")
+async def favori_ekle(favori: FavoriTarif):
+    if not favori.kullanici_id:
+        raise HTTPException(status_code=400, detail="kullanici_id gerekli.")
+    if supabase_client is None:
+        raise HTTPException(status_code=503, detail="Veritabanı bağlantısı yok.")
+
+    try:
+        sonuc = supabase_client.table("favori_tarifler").insert({
+            "kullanici_id": favori.kullanici_id,
+            "tarif_adi": favori.tarif_adi,
+            "kategori": favori.kategori,
+            "hazirlik_suresi_dk": favori.hazirlik_suresi_dk,
+            "pisirme_suresi_dk": favori.pisirme_suresi_dk,
+            "malzemeler": favori.malzemeler,
+            "yapilis_adimlari": favori.yapilis_adimlari,
+            "besin_degerleri": favori.besin_degerleri,
+            "hedef": favori.hedef,
+            "diyet": favori.diyet,
+        }).execute()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Favori eklenemedi: {str(e)}")
+
+    hafizaya_kaydet(favori.kullanici_id, favori.tarif_adi, favori.hedef, favori.diyet, begenildi=True)
+
+    yeni_favori_id = sonuc.data[0]["id"] if sonuc.data else None
+
+    return {"durum": "favorilere eklendi", "favori_id": yeni_favori_id}
+
+@app.get("/favoriler/{kullanici_id}")
+async def favorileri_getir(kullanici_id: str):
+    if supabase_client is None:
+        raise HTTPException(status_code=503, detail="Veritabanı bağlantısı yok.")
+
+    try:
+        sonuc = supabase_client.table("favori_tarifler").select("*").eq("kullanici_id", kullanici_id).order("eklenme_tarihi", desc=True).execute()
+        return {"favoriler": sonuc.data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Favoriler getirilemedi: {str(e)}")
+
+
+@app.delete("/favori-sil/{favori_id}")
+async def favori_sil(favori_id: int):
+    if supabase_client is None:
+        raise HTTPException(status_code=503, detail="Veritabanı bağlantısı yok.")
+
+    try:
+        supabase_client.table("favori_tarifler").delete().eq("id", favori_id).execute()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Favori silinemedi: {str(e)}")
+
+    return {"durum": "favorilerden çıkarıldı"}
 
 @app.post("/makro-hesapla")
 async def makro_hesapla(yemek: YemekFotografi):
