@@ -1,3 +1,14 @@
+# Python Sanal Ortam ve Ön Bellek
+venv/
+ENV/
+env/
+__pycache__/
+*.pyc
+
+# Vektör Veritabanı
+chroma_db/
+**/chroma_db/
+
 # Expo / Metro kalıntıları ve önbellekleri
 .expo/*
 .expo-shared/
