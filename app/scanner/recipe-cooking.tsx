@@ -355,7 +355,7 @@ export default function RecipeCookingScreen() {
   );
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#0F172A' }} edges={['bottom']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#0F172A' }}>
       <StatusBar barStyle="light-content" />
 
       {/* ── Toast Notification ── */}

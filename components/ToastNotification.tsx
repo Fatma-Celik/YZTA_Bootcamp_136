@@ -15,19 +15,19 @@ interface ToastNotificationProps {
 
 const TOAST_CONFIG: Record<ToastType, { bg: string; border: string; icon: keyof typeof Ionicons.glyphMap; iconColor: string }> = {
   success: {
-    bg: 'rgba(16, 185, 129, 0.15)',
+    bg: 'rgba(16, 185, 129, 0.75)',
     border: 'rgba(16, 185, 129, 0.5)',
     icon: 'checkmark-circle',
     iconColor: '#10B981',
   },
   error: {
-    bg: 'rgba(239, 68, 68, 0.15)',
+    bg: 'rgba(239, 68, 68, 0.75)',
     border: 'rgba(239, 68, 68, 0.5)',
     icon: 'close-circle',
     iconColor: '#EF4444',
   },
   info: {
-    bg: 'rgba(255, 107, 53, 0.15)',
+    bg: 'rgba(255, 107, 53, 0.75)',
     border: 'rgba(255, 107, 53, 0.5)',
     icon: 'information-circle',
     iconColor: '#FF6B35',
