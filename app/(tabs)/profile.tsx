@@ -58,6 +58,29 @@ const menuSections: MenuSection[] = [
     ],
   },
   {
+    title: 'Tariflerim',
+    items: [
+      {
+        id: 'my-meals',
+        label: 'Öğünlerim',
+        description: 'Kaydettiğin öğünleri görüntüle',
+        icon: 'restaurant-outline',
+        iconBg: 'rgba(245, 158, 11, 0.15)',
+        iconColor: '#F59E0B',
+        route: '/profile/my-meals',
+      },
+      {
+        id: 'favorite-recipes',
+        label: 'Favori Tariflerim',
+        description: 'Beğendiğin tariflere hızlı ulaş',
+        icon: 'heart-outline',
+        iconBg: 'rgba(239, 68, 68, 0.15)',
+        iconColor: '#EF4444',
+        route: '/profile/favorite-recipes',
+      },
+    ],
+  },
+  {
     title: 'Uygulama',
     items: [
       {

@@ -29,7 +29,7 @@ export default function ScannerLayout() {
       />
       <Stack.Screen
         name="recipe-cooking"
-        options={{ title: 'Tarif Modu' }}
+        options={{ title: 'Tarif Modu' , headerShown:false }}
       />
     </Stack>
   );

@@ -15,6 +15,8 @@ export default function ProfileLayout() {
       <Stack.Screen name="health" options={{ title: 'Sağlığım' }} />
       <Stack.Screen name="preferences" options={{ title: 'Tercihler' }} />
       <Stack.Screen name="account" options={{ title: 'Hesap' }} />
+      <Stack.Screen name="my-meals" options={{ title: 'Öğünlerim' }} />
+      <Stack.Screen name="favorite-recipes" options={{ title: 'Favori Tariflerim' }} />
     </Stack>
   );
 }

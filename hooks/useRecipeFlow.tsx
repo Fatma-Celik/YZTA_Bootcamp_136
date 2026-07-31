@@ -27,6 +27,8 @@ export interface BackendRecipe {
     yag: number;
   };
   hedef_onerisi: string;
+  hedef?: string;
+  diyet?: string;
 }
 
 export interface MacroResponse {
@@ -52,6 +54,8 @@ interface RecipeFlowContextType {
   setSelectedRecipe: (recipe: BackendRecipe | null) => void;
   macroResponse: MacroResponse | null;
   setMacroResponse: (response: MacroResponse | null) => void;
+  favoriteId: string | null;
+  setFavoriteId: (id: string | null) => void;
   clearAll: () => void;
 }
 
@@ -64,6 +68,8 @@ const RecipeFlowContext = createContext<RecipeFlowContextType>({
   setSelectedRecipe: () => {},
   macroResponse: null,
   setMacroResponse: () => {},
+  favoriteId: null,
+  setFavoriteId: () => {},
   clearAll: () => {},
 });
 
@@ -72,12 +78,14 @@ export function RecipeFlowProvider({ children }: { children: React.ReactNode }) 
   const [recipeResponse, setRecipeResponse] = useState<BackendRecipe[] | null>(null);
   const [selectedRecipe, setSelectedRecipe] = useState<BackendRecipe | null>(null);
   const [macroResponse, setMacroResponse] = useState<MacroResponse | null>(null);
+  const [favoriteId, setFavoriteId] = useState<string | null>(null);
 
   const clearAll = () => {
     setIngredients([]);
     setRecipeResponse(null);
     setSelectedRecipe(null);
     setMacroResponse(null);
+    setFavoriteId(null);
   };
 
   return (
@@ -91,6 +99,8 @@ export function RecipeFlowProvider({ children }: { children: React.ReactNode }) 
         setSelectedRecipe,
         macroResponse,
         setMacroResponse,
+        favoriteId,
+        setFavoriteId,
         clearAll,
       }}
     >

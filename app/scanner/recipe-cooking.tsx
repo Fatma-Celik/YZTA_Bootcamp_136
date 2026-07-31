@@ -8,11 +8,16 @@ import {
   Modal,
   Alert,
   BackHandler,
+  ActivityIndicator,
+  Animated as RNAnimated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useRecipeFlow } from '@/hooks/useRecipeFlow';
+import { useAuth } from '@/contexts/AuthContext';
+import { BASE_URL, ENDPOINTS } from '@/constants/ApiConfig';
+import ToastNotification from '@/components/ToastNotification';
 
 // ─────────── Besin Değeri Progress Bar ───────────
 function NutritionBar({
@@ -177,13 +182,23 @@ function IngredientCollapsible({
 // ─────────── Ana Ekran ───────────
 export default function RecipeCookingScreen() {
   const router = useRouter();
-  const { selectedRecipe } = useRecipeFlow();
+  const { selectedRecipe, favoriteId, setFavoriteId } = useRecipeFlow();
+  const { user } = useAuth();
 
   // Pişirme modu state'leri
   const [isCookingActive, setIsCookingActive] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
   const [isFinishModalVisible, setIsFinishModalVisible] = useState(false);
+
+  // Favori state'leri
+  const [isLoadingFavorite, setIsLoadingFavorite] = useState(false);
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState<'success' | 'error' | 'info'>('success');
+  const heartScale = useRef(new RNAnimated.Value(1)).current;
+
+  const isFavorited = favoriteId !== null;
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -243,6 +258,68 @@ export default function RecipeCookingScreen() {
     );
   };
 
+  // ── Favori Toggle ──
+  const toggleFavorite = async () => {
+    if (!selectedRecipe || !user) return;
+    setIsLoadingFavorite(true);
+
+    try {
+      if (!isFavorited) {
+        // Favorilere ekle
+        const body = {
+          kullanici_id: user.id,
+          tarif_adi: selectedRecipe.tarif_adi,
+          kategori: selectedRecipe.kategori || '',
+          hazirlik_suresi_dk: selectedRecipe.hazirlik_suresi_dk || 0,
+          pisirme_suresi_dk: selectedRecipe.pisirme_suresi_dk || 0,
+          malzemeler: selectedRecipe.malzemeler || [],
+          yapilis_adimlari: selectedRecipe.yapilis_adimlari || [],
+          besin_degerleri: selectedRecipe.besin_degerleri || {},
+          hedef: selectedRecipe.hedef || 'normal',
+          diyet: selectedRecipe.diyet || 'normal',
+        };
+
+        const response = await fetch(`${BASE_URL}${ENDPOINTS.favoriEkle}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+
+        const data = await response.json();
+        console.log("favorite data : ", data);
+        setFavoriteId(String(data.favori_id));
+
+        // Kalp animasyonu
+        RNAnimated.sequence([
+          RNAnimated.timing(heartScale, { toValue: 1.4, duration: 150, useNativeDriver: true }),
+          RNAnimated.spring(heartScale, { toValue: 1, useNativeDriver: true, tension: 200, friction: 5 }),
+        ]).start();
+
+        setToastType('success');
+        setToastMessage('Favorilere eklendi ✓');
+        setToastVisible(true);
+      } else {
+        // Favorilerden sil
+        const response = await fetch(`${BASE_URL}${ENDPOINTS.favoriSil}/${favoriteId}`, {
+          method: 'DELETE',
+        });
+
+        if (response.ok) {
+          setFavoriteId(null);
+          setToastType('info');
+          setToastMessage('Favorilerden çıkarıldı');
+          setToastVisible(true);
+        }
+      }
+    } catch (error) {
+      setToastType('error');
+      setToastMessage('Bir hata oluştu, tekrar deneyin');
+      setToastVisible(true);
+    } finally {
+      setIsLoadingFavorite(false);
+    }
+  };
+
   if (!selectedRecipe) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: '#0F172A', justifyContent: 'center', alignItems: 'center' }}>
@@ -281,6 +358,54 @@ export default function RecipeCookingScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: '#0F172A' }} edges={['bottom']}>
       <StatusBar barStyle="light-content" />
 
+      {/* ── Toast Notification ── */}
+      <ToastNotification
+        visible={toastVisible}
+        message={toastMessage}
+        type={toastType}
+        onHide={() => setToastVisible(false)}
+      />
+
+      {/* ── Loading Overlay ── */}
+      <Modal visible={isLoadingFavorite} transparent animationType="fade">
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            justifyContent: 'center',
+            alignItems: 'center',
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: '#1E293B',
+              borderRadius: 18,
+              padding: 28,
+              alignItems: 'center',
+              borderWidth: 1,
+              borderColor: 'rgba(71, 85, 105, 0.3)',
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 8 },
+              shadowOpacity: 0.4,
+              shadowRadius: 16,
+              elevation: 12,
+            }}
+          >
+            <ActivityIndicator size="large" color="#FF6B35" />
+            <Text
+              style={{
+                color: '#94A3B8',
+                fontSize: 13,
+                fontWeight: '600',
+                marginTop: 14,
+              }}
+            >
+              İşlem yapılıyor...
+            </Text>
+          </View>
+        </View>
+      </Modal>
+
       {/* ── Üst Action / Header Bar ── */}
       <View
         style={{
@@ -315,6 +440,36 @@ export default function RecipeCookingScreen() {
             Tarifler
           </Text>
         </TouchableOpacity>
+
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          {/* ── Favori Butonu ── */}
+          <RNAnimated.View style={{ transform: [{ scale: heartScale }] }}>
+            <TouchableOpacity
+              onPress={toggleFavorite}
+              activeOpacity={0.7}
+              disabled={isLoadingFavorite}
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 12,
+                backgroundColor: isFavorited
+                  ? 'rgba(239, 68, 68, 0.15)'
+                  : 'rgba(71, 85, 105, 0.2)',
+                borderWidth: 1,
+                borderColor: isFavorited
+                  ? 'rgba(239, 68, 68, 0.4)'
+                  : 'rgba(71, 85, 105, 0.3)',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Ionicons
+                name={isFavorited ? 'heart' : 'heart-outline'}
+                size={20}
+                color={isFavorited ? '#EF4444' : '#94A3B8'}
+              />
+            </TouchableOpacity>
+          </RNAnimated.View>
 
         {/* ── Mod Butonu / Sayaç ── */}
         {!isCookingActive ? (
@@ -388,6 +543,7 @@ export default function RecipeCookingScreen() {
             </TouchableOpacity>
           </View>
         )}
+        </View>
       </View>
 
       <ScrollView

@@ -4,4 +4,7 @@ export const ENDPOINTS = {
   malzemeTani: '/malzeme-tani',
   tarifOner: '/tarif-oner',
   macroHesapla: '/makro-hesapla',
+  favoriEkle: '/favori-ekle',
+  favoriSil: '/favori-sil',
+  favoriler: '/favoriler',
 };
