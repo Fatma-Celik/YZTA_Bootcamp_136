@@ -3,12 +3,8 @@
     "name": "NexBite - Akıllı Mutfak Asistanı",
     "slug": "nexbite",
     "scheme": "mutfakasistani",
+    "userInterfaceStyle": "automatic",
     "icon": "./assets/images/icon.png",
-    "splash": {
-      "image": "./assets/images/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#0F172A"
-    },
     "android": {
       "package": "com.nexbite.app",
       "adaptiveIcon": {
@@ -29,7 +25,25 @@
     },
     "plugins": [
       "expo-web-browser",
-      "expo-audio"
+      "expo-audio",
+      "expo-asset",
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash-icon.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#0F172A"
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ]
     ],
     "extra": {
       "eas": {

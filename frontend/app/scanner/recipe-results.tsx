@@ -5,11 +5,16 @@ import {
   TouchableOpacity,
   ScrollView,
   StatusBar,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useRecipeFlow, BackendRecipe } from '@/hooks/useRecipeFlow';
+import { useDailyMacros } from '@/hooks/useDailyMacros';
+import { useNotifications } from '@/contexts/NotificationContext';
+import { useAlert } from '@/contexts/AlertContext';
+import { useTheme } from '@/contexts/ThemeContext';
 
 // ─────────── Besin Değeri Progress Bar ───────────
 function NutritionBar({
@@ -65,7 +70,15 @@ function NutritionBar({
 }
 
 // ─────────── Tarif Kartı ───────────
-function RecipeCard({ recipe, index }: { recipe: BackendRecipe; index: number }) {
+function RecipeCard({ 
+  recipe, 
+  index, 
+  onLogMeal 
+}: { 
+  recipe: BackendRecipe; 
+  index: number; 
+  onLogMeal: (recipe: BackendRecipe) => void;
+}) {
   const router = useRouter();
   const { setSelectedRecipe } = useRecipeFlow();
 
@@ -340,6 +353,32 @@ function RecipeCard({ recipe, index }: { recipe: BackendRecipe; index: number })
             Tarifi Kullan
           </Text>
         </TouchableOpacity>
+
+          {/* ✅ Öğün Ekle (Yedim) Butonu */}
+          <TouchableOpacity
+            onPress={() => onLogMeal(recipe)}
+            activeOpacity={0.8}
+            style={{
+              backgroundColor: '#10B981',
+              paddingVertical: 12,
+              borderRadius: 14,
+              alignItems: 'center',
+              flexDirection: 'row',
+              justifyContent: 'center',
+              gap: 8,
+              marginTop: 8,
+              shadowColor: '#10B981',
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.2,
+              shadowRadius: 6,
+              elevation: 3,
+            }}
+          >
+            <Ionicons name="checkmark-circle-outline" size={18} color="#fff" />
+            <Text style={{ color: '#fff', fontSize: 14, fontWeight: '700' }}>
+              Yedim (Öğün Olarak Kaydet)
+            </Text>
+          </TouchableOpacity>
       </View>
     </View>
   );
@@ -348,11 +387,39 @@ function RecipeCard({ recipe, index }: { recipe: BackendRecipe; index: number })
 // ─────────── Ana Ekran ───────────
 export default function RecipeResultsScreen() {
   const { recipeResponse } = useRecipeFlow();
+  const { logMeal } = useDailyMacros();
+  const { addNotification } = useNotifications();
+  const { showAlert } = useAlert();
+  const { colors } = useTheme();
   const recipes = recipeResponse || [];
 
+  // ✅ Öğün Kaydetme Fonksiyonu
+  const handleLogMeal = async (recipe: BackendRecipe) => {
+    const calories = recipe.besin_degerleri?.kalori || 0;
+    const protein = recipe.besin_degerleri?.protein || 0;
+    const carbs = recipe.besin_degerleri?.karbonhidrat || 0;
+    const fat = recipe.besin_degerleri?.yag || 0;
+
+    const { error } = await logMeal({
+      mealName: recipe.tarif_adi,
+      calories,
+      protein,
+      carbs,
+      fat,
+    });
+
+    if (error) {
+      showAlert({ title: 'Hata', message: 'Öğün kaydedilemedi: ' + error, type: 'error' });
+      addNotification(`Öğün kaydedilemedi: ${recipe.tarif_adi}`, 'error');
+    } else {
+      showAlert({ title: 'Afiyet Olsun! 🍽️', message: `${recipe.tarif_adi} günlük tüketim kaydınıza başarıyla eklendi.`, type: 'success' });
+      addNotification(`🍽️ ${recipe.tarif_adi} öğün olarak kaydedildi (${calories} kcal)`, 'success');
+    }
+  };
+
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#0F172A' }} edges={['bottom']}>
-      <StatusBar barStyle="light-content" />
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['bottom']}>
+      <StatusBar barStyle={colors.statusBar} />
 
       <ScrollView
         style={{ flex: 1 }}
@@ -404,7 +471,12 @@ export default function RecipeResultsScreen() {
 
         {/* ── Tarif Listesi ── */}
         {recipes.map((recipe, idx) => (
-          <RecipeCard key={idx} recipe={recipe} index={idx} />
+          <RecipeCard 
+            key={idx} 
+            recipe={recipe} 
+            index={idx} 
+            onLogMeal={handleLogMeal} 
+          />
         ))}
 
         {recipes.length === 0 && (
@@ -428,6 +500,27 @@ export default function RecipeResultsScreen() {
             </Text>
           </View>
         )}
+        {/* ── Tahmini Veri Uyarısı ── */}
+        <View
+          style={{
+            backgroundColor: 'rgba(99, 102, 241, 0.06)',
+            borderRadius: 14,
+            paddingHorizontal: 14,
+            paddingVertical: 12,
+            marginTop: 16,
+            marginBottom: 20,
+            flexDirection: 'row',
+            alignItems: 'flex-start',
+            gap: 10,
+            borderWidth: 1,
+            borderColor: 'rgba(99, 102, 241, 0.18)',
+          }}
+        >
+          <Ionicons name="information-circle-outline" size={18} color="#818CF8" style={{ marginTop: 1 }} />
+          <Text style={{ color: '#94A3B8', fontSize: 12, fontWeight: '500', flex: 1, lineHeight: 18 }}>
+            Gösterilen tarif besin değerleri yapay zeka tarafından hesaplanan tahmini değerlerdir. Kullanılan malzemelerin markasına ve miktarına göre değişiklik gösterebilir.
+          </Text>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );

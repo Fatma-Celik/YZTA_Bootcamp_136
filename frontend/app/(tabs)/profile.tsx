@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,11 +8,13 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/hooks/useProfile';
 import { useProfileStats } from '@/hooks/useProfileStats';
 import { ActivityIndicator } from 'react-native';
+import { useTheme } from '@/contexts/ThemeContext';
+import { ThemeColors } from '@/constants/Colors';
 
 // ─── Tip Tanımları ───
 interface MenuSection {
@@ -111,27 +113,27 @@ const menuSections: MenuSection[] = [
 ];
 
 // ─── Stat Kutucuğu ───
-function StatBox({ label, value }: { label: string; value: string }) {
+function StatBox({ label, value, colors }: { label: string; value: string; colors: ThemeColors }) {
   return (
     <View
       style={{
         flex: 1,
         alignItems: 'center',
         paddingVertical: 12,
-        backgroundColor: 'rgba(30, 41, 59, 0.7)',
+        backgroundColor: colors.cardHighlight,
         borderRadius: 14,
         borderWidth: 1,
-        borderColor: 'rgba(71, 85, 105, 0.3)',
+        borderColor: colors.cardBorder,
       }}
     >
-      <Text style={{ color: '#F1F5F9', fontSize: 18, fontWeight: '800' }}>{value}</Text>
-      <Text style={{ color: '#64748B', fontSize: 11, fontWeight: '600', marginTop: 2 }}>{label}</Text>
+      <Text style={{ color: colors.textPrimary, fontSize: 18, fontWeight: '800' }}>{value}</Text>
+      <Text style={{ color: colors.textMuted, fontSize: 11, fontWeight: '600', marginTop: 2 }}>{label}</Text>
     </View>
   );
 }
 
 // ─── Menü Kalemi ───
-function MenuRow({ item, onPress }: { item: MenuItem; onPress: () => void }) {
+function MenuRow({ item, onPress, colors }: { item: MenuItem; onPress: () => void; colors: ThemeColors }) {
   return (
     <TouchableOpacity
       activeOpacity={0.75}
@@ -160,8 +162,8 @@ function MenuRow({ item, onPress }: { item: MenuItem; onPress: () => void }) {
 
       {/* Metin */}
       <View style={{ flex: 1 }}>
-        <Text style={{ color: '#F1F5F9', fontSize: 15, fontWeight: '700' }}>{item.label}</Text>
-        <Text style={{ color: '#64748B', fontSize: 12, fontWeight: '500', marginTop: 1 }}>
+        <Text style={{ color: colors.textPrimary, fontSize: 15, fontWeight: '700' }}>{item.label}</Text>
+        <Text style={{ color: colors.textMuted, fontSize: 12, fontWeight: '500', marginTop: 1 }}>
           {item.description}
         </Text>
       </View>
@@ -170,7 +172,7 @@ function MenuRow({ item, onPress }: { item: MenuItem; onPress: () => void }) {
       {item.badge && (
         <View
           style={{
-            backgroundColor: item.badgeColor ?? '#FF6B35',
+            backgroundColor: item.badgeColor ?? colors.primary,
             borderRadius: 8,
             paddingHorizontal: 8,
             paddingVertical: 3,
@@ -181,7 +183,7 @@ function MenuRow({ item, onPress }: { item: MenuItem; onPress: () => void }) {
       )}
 
       {/* Ok */}
-      <Ionicons name="chevron-forward" size={16} color="#475569" />
+      <Ionicons name="chevron-forward" size={16} color={colors.iconDefault} />
     </TouchableOpacity>
   );
 }
@@ -190,7 +192,14 @@ export default function TabProfileScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const { profile, loading: profileLoading } = useProfile();
-  const { stats, loading: statsLoading } = useProfileStats();
+  const { stats, loading: statsLoading, refetch: refetchStats } = useProfileStats();
+  const { colors } = useTheme();
+
+  useFocusEffect(
+    useCallback(() => {
+      refetchStats();
+    }, [refetchStats])
+  );
 
   const displayName = profile?.full_name || user?.email?.split('@')[0] || 'Kullanıcı';
   const email = user?.email ?? '—';
@@ -198,63 +207,63 @@ export default function TabProfileScreen() {
 
   if (profileLoading) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#0F172A', justifyContent: 'center' }}>
-        <ActivityIndicator color="#FF6B35" />
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background, justifyContent: 'center' }}>
+        <ActivityIndicator color={colors.primary} />
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#0F172A' }}>
-      <StatusBar barStyle="light-content" />
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+      <StatusBar barStyle={colors.statusBar} />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 32 }}>
 
         <View style={{ paddingHorizontal: 16, paddingTop: 20, paddingBottom: 8 }}>
-          <Text style={{ color: '#F1F5F9', fontSize: 22, fontWeight: '800', letterSpacing: -0.4 }}>Profil</Text>
-          <Text style={{ color: '#64748B', fontSize: 13, fontWeight: '500', marginTop: 2 }}>Hesap ve uygulama ayarları</Text>
+          <Text style={{ color: colors.textPrimary, fontSize: 22, fontWeight: '800', letterSpacing: -0.4 }}>Profil</Text>
+          <Text style={{ color: colors.textMuted, fontSize: 13, fontWeight: '500', marginTop: 2 }}>Hesap ve uygulama ayarları</Text>
         </View>
 
         <View style={{
-          marginHorizontal: 16, marginTop: 16, backgroundColor: '#1E293B', borderRadius: 20,
-          padding: 20, borderWidth: 1, borderColor: 'rgba(71, 85, 105, 0.3)', alignItems: 'center',
+          marginHorizontal: 16, marginTop: 16, backgroundColor: colors.card, borderRadius: 20,
+          padding: 20, borderWidth: 1, borderColor: colors.cardBorder, alignItems: 'center',
         }}>
           <View style={{
             width: 80, height: 80, borderRadius: 40, alignItems: 'center', justifyContent: 'center',
-            backgroundColor: '#FF6B35', shadowColor: '#FF6B35', shadowOffset: { width: 0, height: 6 },
+            backgroundColor: colors.primary, shadowColor: colors.primary, shadowOffset: { width: 0, height: 6 },
             shadowOpacity: 0.4, shadowRadius: 12, elevation: 8,
           }}>
             <Text style={{ color: '#fff', fontSize: 28, fontWeight: '900' }}>{initials}</Text>
           </View>
 
-          <Text style={{ color: '#F1F5F9', fontSize: 20, fontWeight: '800', marginTop: 12, letterSpacing: -0.3 }}>
+          <Text style={{ color: colors.textPrimary, fontSize: 20, fontWeight: '800', marginTop: 12, letterSpacing: -0.3 }}>
             {displayName}
           </Text>
-          <Text style={{ color: '#64748B', fontSize: 13, fontWeight: '500', marginTop: 4 }}>{email}</Text>
+          <Text style={{ color: colors.textMuted, fontSize: 13, fontWeight: '500', marginTop: 4 }}>{email}</Text>
 
           <View style={{ flexDirection: 'row', gap: 10, marginTop: 18, width: '100%' }}>
-            <StatBox label="Tarif" value={statsLoading ? '—' : String(stats.recipeCount)} />
-            <StatBox label="Alışveriş" value={statsLoading ? '—' : String(stats.shoppingListCount)} />
-            <StatBox label="Alerjen" value={statsLoading ? '—' : String(stats.allergenCount)} />
+            <StatBox label="Tarif" value={statsLoading ? '—' : String(stats.recipeCount)} colors={colors} />
+            <StatBox label="Alışveriş" value={statsLoading ? '—' : String(stats.shoppingListCount)} colors={colors} />
+            <StatBox label="Alerjen" value={statsLoading ? '—' : String(stats.allergenCount)} colors={colors} />
           </View>
         </View>
 
         {menuSections.map((section, sIdx) => (
           <View key={section.title} style={{ marginTop: sIdx === 0 ? 24 : 14, marginHorizontal: 16 }}>
             <Text style={{
-              color: '#475569', fontSize: 11, fontWeight: '700', letterSpacing: 1,
+              color: colors.textPrimary, fontSize: 11, fontWeight: '800', letterSpacing: 1,
               textTransform: 'uppercase', marginBottom: 6, marginLeft: 4,
             }}>
               {section.title}
             </Text>
             <View style={{
-              backgroundColor: '#1E293B', borderRadius: 18, borderWidth: 1,
-              borderColor: 'rgba(71, 85, 105, 0.3)', overflow: 'hidden',
+              backgroundColor: colors.card, borderRadius: 18, borderWidth: 1,
+              borderColor: colors.cardBorder, overflow: 'hidden',
             }}>
               {section.items.map((item, iIdx) => (
                 <View key={item.id}>
-                  <MenuRow item={item} onPress={() => router.push(item.route as any)} />
+                  <MenuRow item={item} onPress={() => router.push(item.route as any)} colors={colors} />
                   {iIdx < section.items.length - 1 && (
-                    <View style={{ height: 1, backgroundColor: 'rgba(71, 85, 105, 0.2)', marginLeft: 74 }} />
+                    <View style={{ height: 1, backgroundColor: colors.divider, marginLeft: 74 }} />
                   )}
                 </View>
               ))}
@@ -262,7 +271,7 @@ export default function TabProfileScreen() {
           </View>
         ))}
 
-        <Text style={{ color: '#334155', fontSize: 12, fontWeight: '500', textAlign: 'center', marginTop: 32 }}>
+        <Text style={{ color: colors.badgeBg, fontSize: 12, fontWeight: '500', textAlign: 'center', marginTop: 32 }}>
           NexBite v1.0.0
         </Text>
       </ScrollView>

@@ -15,11 +15,17 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Polyline, Circle, Line, Text as SvgText, Defs, LinearGradient, Stop, Rect, Polygon } from 'react-native-svg';
+import { useFocusEffect } from 'expo-router';
+import { useDailyMacros } from '@/hooks/useDailyMacros';
+import { useAlert } from '@/contexts/AlertContext';
+import { useTheme } from '@/contexts/ThemeContext';
 
 // ─────────────── Sabitler ───────────────
 const HEALTH_PROFILE_KEY = '@health_profile_v1';
 const WEIGHT_LOG_KEY = '@weight_log_v1';
 const MAX_LOG_ENTRIES = 20;
+
+
 
 export interface HealthProfile {
   height: number; // cm
@@ -245,8 +251,20 @@ function InfoRow({
 
 // ─────────────── Ana Ekran ───────────────
 export default function HealthScreen() {
+  const { colors } = useTheme();
   const [profile, setProfile] = useState<HealthProfile>({ height: 175, age: 28 });
   const [weightLog, setWeightLog] = useState<WeightEntry[]>([]);
+
+  // ✅ Supabase Makro Hook'u
+  const { consumed, targets, refetch } = useDailyMacros();
+  const { showAlert } = useAlert();
+
+  // Sayfa açıldığında değerleri tazeleyin
+  useFocusEffect(
+    useCallback(() => {
+      refetch();
+    }, [refetch])
+  );
 
   // Edit Profile Modal
   const [editProfileVisible, setEditProfileVisible] = useState(false);
@@ -299,11 +317,11 @@ export default function HealthScreen() {
     const h = parseFloat(editHeight);
     const a = parseInt(editAge);
     if (!h || h < 100 || h > 250) {
-      Alert.alert('Hata', 'Geçerli bir boy değeri girin (100-250 cm)');
+      showAlert({ title: 'Hata', message: 'Geçerli bir boy değeri girin (100-250 cm)', type: 'warning' });
       return;
     }
     if (!a || a < 5 || a > 120) {
-      Alert.alert('Hata', 'Geçerli bir yaş değeri girin');
+      showAlert({ title: 'Hata', message: 'Geçerli bir yaş değeri girin', type: 'warning' });
       return;
     }
     await saveProfile({ height: h, age: a });
@@ -314,7 +332,7 @@ export default function HealthScreen() {
   const handleAddWeight = async () => {
     const w = parseFloat(newWeight.replace(',', '.'));
     if (!w || w < 20 || w > 300) {
-      Alert.alert('Hata', 'Geçerli bir kilo değeri girin (20-300 kg)');
+      showAlert({ title: 'Hata', message: 'Geçerli bir kilo değeri girin (20-300 kg)', type: 'warning' });
       return;
     }
     const entry: WeightEntry = {
@@ -342,8 +360,8 @@ export default function HealthScreen() {
 
   // ─────────────── RENDER ───────────────
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#0F172A' }} edges={['bottom']}>
-      <StatusBar barStyle="light-content" />
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['bottom']}>
+      <StatusBar barStyle={colors.statusBar} />
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 32 }}>
 
@@ -540,34 +558,40 @@ export default function HealthScreen() {
               marginBottom: 16,
               backgroundColor: '#1E293B',
               borderRadius: 20,
-              padding: 16,
+              padding: 18,
               borderWidth: 1,
               borderColor: 'rgba(71, 85, 105, 0.3)',
             }}
           >
-            <Text style={{ color: '#F1F5F9', fontSize: 15, fontWeight: '700', marginBottom: 4 }}>
-              Günlük Makro İhtiyacı
-            </Text>
-            <Text style={{ color: '#64748B', fontSize: 11, fontWeight: '500', marginBottom: 16 }}>
-              Boy, kilo ve yaşınıza göre tahmini değerler
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+              <Text style={{ color: '#F1F5F9', fontSize: 16, fontWeight: '800' }}>
+                📊 Günlük Besin & Makro Raporu
+              </Text>
+            </View>
+            <Text style={{ color: '#64748B', fontSize: 12, fontWeight: '500', marginBottom: 16 }}>
+              Bugün tüketilen öğünlerinize göre detaylı analiz
             </Text>
 
-            {/* Makrolar */}
+            {/* Makrolar ve Kalori Detayı */}
             {(() => {
-              // Mifflin-St Jeor formülü ile TDEE (orta aktiflik × 1.55)
               const bmi = calcBMI(currentWeight, profile.height);
               const bmr = 10 * currentWeight + 6.25 * profile.height - 5 * profile.age + 5;
-              const tdee = Math.round(bmr * 1.55);
 
-              // Makro hedefleri (kilo verme hedefi varsayılan)
-              const proteinTarget = Math.round(currentWeight * 2.0);     // 2g/kg
-              const carbTarget = Math.round((tdee * 0.40) / 4);           // %40 kalori karbdan
-              const fatTarget = Math.round((tdee * 0.25) / 9);            // %25 kalori yağdan
+              const tdee = targets.calories || 2000;
+              const calConsumed = consumed.calories || 0;
+              const isExceeded = calConsumed > tdee;
+              const calRemaining = Math.max(tdee - calConsumed, 0);
+              const calPct = Math.min(Math.round((calConsumed / tdee) * 100), 100);
 
-              // Statik "bugün alınan" (ileride dinamik bağlanacak)
-              const proteinConsumed = Math.round(proteinTarget * 0.72);
-              const carbConsumed = Math.round(carbTarget * 0.55);
-              const fatConsumed = Math.round(fatTarget * 0.38);
+              const proteinTarget = targets.protein || 130;
+              const carbTarget = targets.carbs || 220;
+              const fatTarget = targets.fat || 65;
+              const fiberTarget = targets.fiber || 28;
+
+              const proteinConsumed = consumed.protein || 0;
+              const carbConsumed = consumed.carbs || 0;
+              const fatConsumed = consumed.fat || 0;
+              const fiberConsumed = consumed.fiber || 0;
 
               const macros = [
                 {
@@ -597,79 +621,114 @@ export default function HealthScreen() {
                   target: fatTarget,
                   unit: 'g',
                 },
+                {
+                  label: 'Lif (Fiber)',
+                  icon: 'nutrition-outline' as const,
+                  color: '#38BDF8',
+                  bg: 'rgba(56, 189, 248, 0.12)',
+                  consumed: fiberConsumed,
+                  target: fiberTarget,
+                  unit: 'g',
+                },
               ];
 
               return (
                 <>
-                  {/* Kalori Özeti */}
+                  {/* ── Kalori Ana Özet Grid ── */}
                   <View
                     style={{
-                      flexDirection: 'row',
-                      backgroundColor: 'rgba(255, 107, 53, 0.08)',
-                      borderRadius: 14,
-                      padding: 14,
-                      marginBottom: 16,
-                      borderWidth: 1,
-                      borderColor: 'rgba(255, 107, 53, 0.2)',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
+                      backgroundColor: isExceeded ? 'rgba(239, 68, 68, 0.12)' : 'rgba(15, 23, 42, 0.6)',
+                      borderRadius: 16,
+                      padding: 16,
+                      marginBottom: 18,
+                      borderWidth: isExceeded ? 2 : 1,
+                      borderColor: isExceeded ? '#EF4444' : 'rgba(255, 107, 53, 0.2)',
                     }}
                   >
-                    <View>
-                      <Text style={{ color: '#94A3B8', fontSize: 11, fontWeight: '600' }}>Günlük Kalori Hedefi</Text>
-                      <Text style={{ color: '#FF6B35', fontSize: 24, fontWeight: '900', marginTop: 2 }}>
-                        {tdee} <Text style={{ fontSize: 13, fontWeight: '600', color: '#94A3B8' }}>kcal</Text>
-                      </Text>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                      <View>
+                        <Text style={{ color: '#94A3B8', fontSize: 11, fontWeight: '600' }}>ALINAN KALORİ</Text>
+                        <Text style={{ color: isExceeded ? '#EF4444' : '#FF6B35', fontSize: 26, fontWeight: '900', marginTop: 2 }}>
+                          {calConsumed} <Text style={{ fontSize: 13, fontWeight: '600', color: '#94A3B8' }}>/ {tdee} kcal</Text>
+                        </Text>
+                      </View>
+                      <View style={{ alignItems: 'flex-end' }}>
+                        <Text style={{ color: '#94A3B8', fontSize: 11, fontWeight: '600' }}>
+                          {isExceeded ? 'AŞILAN MİKTAR' : 'KALAN HEDEF'}
+                        </Text>
+                        <Text style={{ color: isExceeded ? '#EF4444' : '#10B981', fontSize: 20, fontWeight: '800', marginTop: 2 }}>
+                          {isExceeded ? `+${calConsumed - tdee}` : calRemaining} <Text style={{ fontSize: 12, fontWeight: '600', color: '#94A3B8' }}>kcal</Text>
+                        </Text>
+                      </View>
                     </View>
-                    <View style={{ alignItems: 'flex-end' }}>
-                      <Text style={{ color: '#94A3B8', fontSize: 11, fontWeight: '600' }}>Bazal Metabolizma</Text>
-                      <Text style={{ color: '#F1F5F9', fontSize: 16, fontWeight: '800', marginTop: 2 }}>
-                        {Math.round(bmr)} kcal
+
+                    {/* Progress Bar */}
+                    <View style={{ height: 8, backgroundColor: 'rgba(71, 85, 105, 0.3)', borderRadius: 4, overflow: 'hidden', marginBottom: 10 }}>
+                      <View style={{ height: '100%', width: `${calPct}%`, backgroundColor: isExceeded ? '#EF4444' : '#FF6B35', borderRadius: 4 }} />
+                    </View>
+
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Text style={{ color: isExceeded ? '#EF4444' : '#94A3B8', fontSize: 11, fontWeight: '700' }}>
+                        {isExceeded ? '⚠️ Kalori Hedefi Aşıldı!' : `Tamamlanan: %${calPct}`}
+                      </Text>
+                      <Text style={{ color: '#94A3B8', fontSize: 11, fontWeight: '500' }}>
+                        Bazal Metabolizma: <Text style={{ color: '#F1F5F9', fontWeight: '700' }}>{Math.round(bmr)} kcal</Text>
                       </Text>
                     </View>
                   </View>
 
-                  {/* Makro Barları */}
+                  {/* ── Makro Detay Kartları ── */}
                   {macros.map((macro, idx) => {
                     const pct = Math.min(macro.consumed / macro.target, 1);
                     const pctDisplay = Math.round(pct * 100);
+                    const remaining = Math.max(macro.target - macro.consumed, 0);
+
                     return (
-                      <View key={macro.label} style={{ marginBottom: idx < macros.length - 1 ? 16 : 0 }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 10 }}>
+                      <View
+                        key={macro.label}
+                        style={{
+                          backgroundColor: 'rgba(15, 23, 42, 0.4)',
+                          borderRadius: 14,
+                          padding: 12,
+                          marginBottom: idx < macros.length - 1 ? 12 : 0,
+                          borderWidth: 1,
+                          borderColor: 'rgba(71, 85, 105, 0.15)',
+                        }}
+                      >
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                           {/* İkon */}
                           <View
                             style={{
-                              width: 34,
-                              height: 34,
-                              borderRadius: 10,
+                              width: 38,
+                              height: 38,
+                              borderRadius: 12,
                               backgroundColor: macro.bg,
                               alignItems: 'center',
                               justifyContent: 'center',
                               flexShrink: 0,
                             }}
                           >
-                            <Ionicons name={macro.icon} size={16} color={macro.color} />
+                            <Ionicons name={macro.icon} size={18} color={macro.color} />
                           </View>
 
-                          {/* Etiket + Değer */}
+                          {/* İçerik */}
                           <View style={{ flex: 1 }}>
-                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
-                              <Text style={{ color: '#F1F5F9', fontSize: 13, fontWeight: '700' }}>{macro.label}</Text>
-                              <Text style={{ color: '#94A3B8', fontSize: 12, fontWeight: '600' }}>
-                                <Text style={{ color: macro.color, fontWeight: '800' }}>{macro.consumed}{macro.unit}</Text>
-                                {' / '}{macro.target}{macro.unit}
-                                {'  '}
-                                <Text style={{ color: pct >= 1 ? '#10B981' : macro.color }}>%{pctDisplay}</Text>
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                              <Text style={{ color: '#F1F5F9', fontSize: 14, fontWeight: '700' }}>{macro.label}</Text>
+                              <Text style={{ color: macro.color, fontSize: 14, fontWeight: '800' }}>
+                                {macro.consumed}{macro.unit}
+                                <Text style={{ color: '#64748B', fontSize: 12, fontWeight: '600' }}> / {macro.target}{macro.unit}</Text>
                               </Text>
                             </View>
 
-                            {/* Progress Bar */}
+                            {/* Bar */}
                             <View
                               style={{
                                 height: 7,
                                 backgroundColor: 'rgba(71, 85, 105, 0.3)',
                                 borderRadius: 4,
                                 overflow: 'hidden',
+                                marginVertical: 6,
                               }}
                             >
                               <View
@@ -680,6 +739,15 @@ export default function HealthScreen() {
                                   borderRadius: 4,
                                 }}
                               />
+                            </View>
+
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <Text style={{ color: '#64748B', fontSize: 11, fontWeight: '500' }}>
+                                Kalan: <Text style={{ color: '#CBD5E1', fontWeight: '700' }}>{remaining}{macro.unit}</Text>
+                              </Text>
+                              <Text style={{ color: pctDisplay >= 100 ? '#10B981' : macro.color, fontSize: 11, fontWeight: '700' }}>
+                                %{pctDisplay}
+                              </Text>
                             </View>
                           </View>
                         </View>

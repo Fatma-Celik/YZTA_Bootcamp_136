@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -6,10 +6,17 @@ import {
   StatusBar,
   Animated,
   Easing,
+  TouchableOpacity,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRecipeFlow } from '@/hooks/useRecipeFlow';
+import { useDailyMacros } from '@/hooks/useDailyMacros';
+import { useNotifications } from '@/contexts/NotificationContext';
+import { useAlert } from '@/contexts/AlertContext';
+import { useTheme } from '@/contexts/ThemeContext';
 
 // ─────────── Animasyonlu Progress Bar ───────────
 function AnimatedNutritionBar({
@@ -97,6 +104,43 @@ function AnimatedNutritionBar({
 // ─────────── Ana Ekran ───────────
 export default function MacroResultsScreen() {
   const { macroResponse } = useRecipeFlow();
+  const { logMeal } = useDailyMacros();
+  const { addNotification } = useNotifications();
+  const { showAlert } = useAlert();
+  const { colors } = useTheme();
+  const [saving, setSaving] = useState(false);
+  const [isLogged, setIsLogged] = useState(false);
+
+  // Öğün kaydetme handler'ı
+  const handleLogMeal = async () => {
+    if (!macroResponse || saving || isLogged) return;
+    setSaving(true);
+
+    try {
+      const { error } = await logMeal({
+        mealName: macroResponse.yemek_adi,
+        calories: macroResponse.besin_degerleri?.kalori || 0,
+        protein: macroResponse.besin_degerleri?.protein || 0,
+        carbs: macroResponse.besin_degerleri?.karbonhidrat || 0,
+        fat: macroResponse.besin_degerleri?.yag || 0,
+        fiber: macroResponse.besin_degerleri?.lif || 0,
+      });
+
+      if (error) {
+        showAlert({ title: 'Hata', message: 'Öğün kaydedilemedi: ' + error, type: 'error' });
+        addNotification(`Öğün kaydedilemedi: ${macroResponse.yemek_adi}`, 'error');
+      } else {
+        setIsLogged(true);
+        addNotification(`🍽️ ${macroResponse.yemek_adi} öğünlerinize eklendi! (${macroResponse.besin_degerleri?.kalori || 0} kcal)`, 'success');
+        showAlert({ title: 'Afiyet Olsun! 🍽️', message: `${macroResponse.yemek_adi} günlük öğünlerinize başarıyla kaydedildi.`, type: 'success' });
+      }
+    } catch (err: any) {
+      console.error('handleLogMeal exception:', err);
+      showAlert({ title: 'Hata', message: 'İşlem sırasında bir hata oluştu: ' + (err?.message || err), type: 'error' });
+    } finally {
+      setSaving(false);
+    }
+  };
 
   // Fade-in animation
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -120,8 +164,8 @@ export default function MacroResultsScreen() {
 
   if (!macroResponse) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#0F172A' }} edges={['bottom']}>
-        <StatusBar barStyle="light-content" />
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['bottom']}>
+        <StatusBar barStyle={colors.statusBar} />
         <View
           style={{
             flex: 1,
@@ -130,10 +174,10 @@ export default function MacroResultsScreen() {
             paddingHorizontal: 32,
           }}
         >
-          <Ionicons name="alert-circle-outline" size={48} color="#475569" />
+          <Ionicons name="alert-circle-outline" size={48} color={colors.textMuted} />
           <Text
             style={{
-              color: '#64748B',
+              color: colors.textMuted,
               fontSize: 16,
               fontWeight: '600',
               marginTop: 12,
@@ -150,8 +194,8 @@ export default function MacroResultsScreen() {
   const { yemek_adi, ogun, besin_degerleri, degerlendirme, oneri } = macroResponse;
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#0F172A' }} edges={['bottom']}>
-      <StatusBar barStyle="light-content" />
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['bottom']}>
+      <StatusBar barStyle={colors.statusBar} />
 
       <ScrollView
         style={{ flex: 1 }}
@@ -188,154 +232,40 @@ export default function MacroResultsScreen() {
             >
               <View
                 style={{
-                  width: 48,
-                  height: 48,
-                  borderRadius: 14,
-                  backgroundColor: 'rgba(16, 185, 129, 0.12)',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginRight: 14,
+                  backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                  paddingHorizontal: 10,
+                  paddingVertical: 4,
+                  borderRadius: 8,
+                  borderWidth: 1,
+                  borderColor: 'rgba(16, 185, 129, 0.3)',
                 }}
               >
-                <Ionicons name="nutrition" size={24} color="#10B981" />
-              </View>
-              <View style={{ flex: 1 }}>
                 <Text
                   style={{
-                    color: '#F1F5F9',
-                    fontSize: 18,
-                    fontWeight: '800',
-                    letterSpacing: -0.3,
-                    lineHeight: 24,
+                    color: '#10B981',
+                    fontSize: 12,
+                    fontWeight: '700',
+                    textTransform: 'uppercase',
                   }}
-                  numberOfLines={3}
                 >
-                  {yemek_adi}
+                  {ogun || 'Öğün'}
                 </Text>
               </View>
             </View>
 
-            {/* Öğün Badge */}
-            <View
-              style={{
-                alignSelf: 'flex-start',
-                backgroundColor: 'rgba(16, 185, 129, 0.12)',
-                paddingHorizontal: 14,
-                paddingVertical: 6,
-                borderRadius: 20,
-                borderWidth: 1,
-                borderColor: 'rgba(16, 185, 129, 0.25)',
-              }}
-            >
-              <Text
-                style={{
-                  color: '#10B981',
-                  fontSize: 12,
-                  fontWeight: '700',
-                }}
-              >
-                🍽️ {ogun}
-              </Text>
-            </View>
-          </View>
-
-          {/* ── Kalori Kartı (Büyük Gösterim) ── */}
-          <View
-            style={{
-              backgroundColor: '#1E293B',
-              borderRadius: 20,
-              padding: 24,
-              marginBottom: 16,
-              alignItems: 'center',
-              borderWidth: 1,
-              borderColor: 'rgba(255, 107, 53, 0.2)',
-            }}
-          >
             <Text
               style={{
-                color: '#64748B',
-                fontSize: 12,
-                fontWeight: '700',
-                letterSpacing: 1,
-                textTransform: 'uppercase',
-                marginBottom: 8,
+                color: '#F1F5F9',
+                fontSize: 22,
+                fontWeight: '800',
+                letterSpacing: -0.4,
               }}
             >
-              Toplam Kalori
+              {yemek_adi}
             </Text>
-            <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
-              <Text
-                style={{
-                  color: '#FF6B35',
-                  fontSize: 52,
-                  fontWeight: '900',
-                  letterSpacing: -2,
-                }}
-              >
-                {besin_degerleri.kalori}
-              </Text>
-              <Text
-                style={{
-                  color: '#FF6B35',
-                  fontSize: 18,
-                  fontWeight: '700',
-                  marginLeft: 4,
-                  opacity: 0.7,
-                }}
-              >
-                kcal
-              </Text>
-            </View>
-
-            {/* Mini makro gösterimi */}
-            <View
-              style={{
-                flexDirection: 'row',
-                marginTop: 16,
-                gap: 16,
-              }}
-            >
-              {[
-                { label: 'Protein', value: besin_degerleri.protein, unit: 'g', color: '#10B981' },
-                { label: 'Karb.', value: besin_degerleri.karbonhidrat, unit: 'g', color: '#818CF8' },
-                { label: 'Yağ', value: besin_degerleri.yag, unit: 'g', color: '#F59E0B' },
-                { label: 'Lif', value: besin_degerleri.lif, unit: 'g', color: '#38BDF8' },
-              ].map((item) => (
-                <View key={item.label} style={{ alignItems: 'center', flex: 1 }}>
-                  <View
-                    style={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: 4,
-                      backgroundColor: item.color,
-                      marginBottom: 6,
-                    }}
-                  />
-                  <Text
-                    style={{
-                      color: '#F1F5F9',
-                      fontSize: 16,
-                      fontWeight: '800',
-                    }}
-                  >
-                    {item.value}{item.unit}
-                  </Text>
-                  <Text
-                    style={{
-                      color: '#64748B',
-                      fontSize: 11,
-                      fontWeight: '500',
-                      marginTop: 2,
-                    }}
-                  >
-                    {item.label}
-                  </Text>
-                </View>
-              ))}
-            </View>
           </View>
 
-          {/* ── Besin Değerleri Progress Barlar ── */}
+          {/* ── Besin Değerleri Kartı ── */}
           <View
             style={{
               backgroundColor: '#1E293B',
@@ -356,40 +286,48 @@ export default function MacroResultsScreen() {
                 marginBottom: 16,
               }}
             >
-              📊 Makro Besin Değerleri
+              📊 Besin Değerleri
             </Text>
 
             <AnimatedNutritionBar
+              label="Kalori"
+              value={besin_degerleri?.kalori || 0}
+              maxValue={800}
+              color="#FF6B35"
+              unit=" kcal"
+              delay={100}
+            />
+            <AnimatedNutritionBar
               label="Protein"
-              value={besin_degerleri.protein}
-              maxValue={150}
+              value={besin_degerleri?.protein || 0}
+              maxValue={80}
               color="#10B981"
               unit="g"
               delay={200}
             />
             <AnimatedNutritionBar
               label="Karbonhidrat"
-              value={besin_degerleri.karbonhidrat}
-              maxValue={300}
+              value={besin_degerleri?.karbonhidrat || 0}
+              maxValue={120}
               color="#818CF8"
+              unit="g"
+              delay={300}
+            />
+            <AnimatedNutritionBar
+              label="Yağ"
+              value={besin_degerleri?.yag || 0}
+              maxValue={60}
+              color="#F59E0B"
               unit="g"
               delay={400}
             />
             <AnimatedNutritionBar
-              label="Yağ"
-              value={besin_degerleri.yag}
-              maxValue={100}
-              color="#F59E0B"
-              unit="g"
-              delay={600}
-            />
-            <AnimatedNutritionBar
               label="Lif"
-              value={besin_degerleri.lif}
-              maxValue={50}
-              color="#38BDF8"
+              value={besin_degerleri?.lif || 0}
+              maxValue={30}
+              color="#EC4899"
               unit="g"
-              delay={800}
+              delay={500}
             />
           </View>
 
@@ -397,40 +335,25 @@ export default function MacroResultsScreen() {
           {degerlendirme ? (
             <View
               style={{
-                backgroundColor: '#1E293B',
-                borderRadius: 20,
-                padding: 20,
+                backgroundColor: 'rgba(16, 185, 129, 0.08)',
+                borderRadius: 18,
+                padding: 16,
                 marginBottom: 16,
                 borderWidth: 1,
-                borderColor: 'rgba(129, 140, 248, 0.2)',
+                borderColor: 'rgba(16, 185, 129, 0.25)',
               }}
             >
               <View
                 style={{
                   flexDirection: 'row',
                   alignItems: 'center',
-                  marginBottom: 12,
-                  gap: 10,
+                  gap: 8,
+                  marginBottom: 8,
                 }}
               >
-                <View
-                  style={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: 10,
-                    backgroundColor: 'rgba(129, 140, 248, 0.12)',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <Ionicons name="clipboard" size={18} color="#818CF8" />
-                </View>
+                <Ionicons name="checkmark-circle" size={20} color="#10B981" />
                 <Text
-                  style={{
-                    color: '#F1F5F9',
-                    fontSize: 15,
-                    fontWeight: '700',
-                  }}
+                  style={{ color: '#10B981', fontSize: 14, fontWeight: '700' }}
                 >
                   Değerlendirme
                 </Text>
@@ -438,9 +361,9 @@ export default function MacroResultsScreen() {
               <Text
                 style={{
                   color: '#CBD5E1',
-                  fontSize: 14,
+                  fontSize: 13,
                   fontWeight: '500',
-                  lineHeight: 22,
+                  lineHeight: 20,
                 }}
               >
                 {degerlendirme}
@@ -452,55 +375,77 @@ export default function MacroResultsScreen() {
           {oneri ? (
             <View
               style={{
-                backgroundColor: '#1E293B',
-                borderRadius: 20,
-                padding: 20,
+                backgroundColor: 'rgba(245, 158, 11, 0.08)',
+                borderRadius: 18,
+                padding: 16,
+                marginBottom: 24,
                 borderWidth: 1,
-                borderColor: 'rgba(245, 158, 11, 0.2)',
+                borderColor: 'rgba(245, 158, 11, 0.25)',
               }}
             >
               <View
                 style={{
                   flexDirection: 'row',
                   alignItems: 'center',
-                  marginBottom: 12,
-                  gap: 10,
+                  gap: 8,
+                  marginBottom: 8,
                 }}
               >
-                <View
-                  style={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: 10,
-                    backgroundColor: 'rgba(245, 158, 11, 0.12)',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <Ionicons name="bulb" size={18} color="#F59E0B" />
-                </View>
+                <Ionicons name="bulb-outline" size={20} color="#F59E0B" />
                 <Text
-                  style={{
-                    color: '#F1F5F9',
-                    fontSize: 15,
-                    fontWeight: '700',
-                  }}
+                  style={{ color: '#F59E0B', fontSize: 14, fontWeight: '700' }}
                 >
-                  Öneri
+                  Beslenme Önerisi
                 </Text>
               </View>
               <Text
                 style={{
                   color: '#CBD5E1',
-                  fontSize: 14,
+                  fontSize: 13,
                   fontWeight: '500',
-                  lineHeight: 22,
+                  lineHeight: 20,
                 }}
               >
                 {oneri}
               </Text>
             </View>
           ) : null}
+
+          {/* ── Öğün Kaydet (Yedim) Butonu ── */}
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={handleLogMeal}
+            disabled={saving || isLogged}
+            style={{
+              backgroundColor: isLogged ? '#334155' : '#10B981',
+              borderRadius: 16,
+              paddingVertical: 16,
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexDirection: 'row',
+              gap: 8,
+              shadowColor: '#10B981',
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: isLogged ? 0 : 0.3,
+              shadowRadius: 8,
+              elevation: isLogged ? 0 : 6,
+            }}
+          >
+            {saving ? (
+              <ActivityIndicator color="#FFF" size="small" />
+            ) : (
+              <>
+                <Ionicons
+                  name={isLogged ? 'checkmark-circle' : 'add-circle-outline'}
+                  size={20}
+                  color="#FFF"
+                />
+                <Text style={{ color: '#FFF', fontSize: 16, fontWeight: '700' }}>
+                  {isLogged ? 'Öğün Kaydedildi ✓' : 'Günlük Öğünlerime Ekle'}
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
         </Animated.View>
       </ScrollView>
     </SafeAreaView>

@@ -4,11 +4,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
 import { Platform } from 'react-native';
 
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL as string;
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY as string;
+const supabaseUrl = (process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://wnamodiugqcbvnojznio.supabase.co') as string;
+const supabaseAnonKey = (process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InduYW1vZGl1Z3FjYnZub2p6bmlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4ODUzNzksImV4cCI6MjA5ODQ2MTM3OX0.hXovKzEzHRtEqLC_KYHGHz15Q_r7vf5ieDkMKMAclLc') as string;
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn('Supabase URL veya Anon Key .env dosyasında eksik!');
+if (!process.env.EXPO_PUBLIC_SUPABASE_URL || !process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY) {
+  console.warn('Supabase URL veya Anon Key .env dosyasından okunamadı, varsayılan sabit değerler kullanılıyor.');
 }
 
 // Web'de SSR/Node ortamında "window" olmayabilir; bu durumda no-op storage kullan

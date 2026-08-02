@@ -13,7 +13,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRecipeFlow, BackendRecipe } from '@/hooks/useRecipeFlow';
-import { BASE_URL, ENDPOINTS } from '@/constants/ApiConfig';
+import { useTheme } from '@/contexts/ThemeContext';
+// 1. Supabase istemcisi import edildi (Projenizdeki doğru path ile güncelleyebilirsiniz)
+import { supabase } from '@/lib/supabase';
 
 // ─── Favori Tarif Tipi (API response) ───
 interface FavoriteRecipe extends BackendRecipe {
@@ -67,7 +69,7 @@ function FavoriteRecipeCard({
   recipe: FavoriteRecipe;
   onPress: () => void;
 }) {
-  const catColor = getCategoryColor(recipe.kategori);
+  const catColor = getCategoryColor(recipe.kategori || '');
   const totalTime = (recipe.hazirlik_suresi_dk || 0) + (recipe.pisirme_suresi_dk || 0);
 
   return (
@@ -116,9 +118,10 @@ function FavoriteRecipeCard({
           {recipe.tarif_adi}
         </Text>
 
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        {/* 2. Düzeltme: JSX Kapanış Hataları Giderildi */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           {/* Kategori Badge */}
-          {recipe.kategori ? (
+          {recipe.kategori && (
             <View
               style={{
                 backgroundColor: catColor.bg,
@@ -140,22 +143,41 @@ function FavoriteRecipeCard({
                 {recipe.kategori}
               </Text>
             </View>
-          ) : null}
+          )}
 
-          {/* Süre */}
+          {/* Hazırlık & Pişirme Süresi */}
           {totalTime > 0 && (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
-              <Ionicons name="time-outline" size={13} color="#64748B" />
-              <Text style={{ color: '#64748B', fontSize: 12, fontWeight: '600' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Ionicons name="time-outline" size={13} color="#94A3B8" />
+              <Text style={{ color: '#94A3B8', fontSize: 12, marginLeft: 4 }}>
                 {totalTime} dk
+              </Text>
+            </View>
+          )}
+
+          {/* Kalori */}
+          {recipe.besin_degerleri?.kalori != null && (
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Ionicons name="flame-outline" size={13} color="#FF6B35" />
+              <Text style={{ color: '#FF6B35', fontSize: 12, marginLeft: 4, fontWeight: '600' }}>
+                {recipe.besin_degerleri.kalori} kcal
+              </Text>
+            </View>
+          )}
+
+          {/* Malzeme Sayısı */}
+          {recipe.malzemeler && (
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Ionicons name="list-outline" size={13} color="#94A3B8" />
+              <Text style={{ color: '#94A3B8', fontSize: 12, marginLeft: 4 }}>
+                {recipe.malzemeler.length} malzeme
               </Text>
             </View>
           )}
         </View>
       </View>
 
-      {/* Sağ: Ok */}
-      <Ionicons name="chevron-forward" size={18} color="#475569" />
+      <Ionicons name="chevron-forward" size={20} color="#64748B" style={{ marginLeft: 8 }} />
     </TouchableOpacity>
   );
 }
@@ -165,6 +187,7 @@ export default function FavoriteRecipesScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const { setSelectedRecipe, setFavoriteId } = useRecipeFlow();
+  const { colors } = useTheme();
 
   const [recipes, setRecipes] = useState<FavoriteRecipe[]>([]);
   const [loading, setLoading] = useState(true);
@@ -176,14 +199,38 @@ export default function FavoriteRecipesScreen() {
     setError(null);
 
     try {
-      console.log(user.id);
-      const response = await fetch(`${BASE_URL}${ENDPOINTS.favoriler}/${user.id}`);
-      if (!response.ok) throw new Error('Favoriler yüklenemedi');
-      const data = await response.json();
-      console.log(data)
-      // API array döndürüyor
-      const fav_list = Array.isArray(data) ? data : data.favoriler || [];
-      console.log('Favori tarifler:', fav_list);
+      // Supabase'den direkt favori_tarifler tablosundan veri çekme
+      let { data, error: supaErr } = await supabase
+        .from('favori_tarifler')
+        .select('*')
+        .eq('kullanici_id', user.id)
+        .order('eklenme_tarihi', { ascending: false });
+
+      if (supaErr || !data || data.length === 0) {
+        const fallback1 = await supabase
+          .from('favori_tarifler')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('eklenme_tarihi', { ascending: false });
+
+        if (!fallback1.error && fallback1.data && fallback1.data.length > 0) {
+          data = fallback1.data;
+        } else {
+          const fallback2 = await supabase
+            .from('favorite_recipes')
+            .select('*')
+            .eq('kullanici_id', user.id);
+          if (!fallback2.error && fallback2.data && fallback2.data.length > 0) {
+            data = fallback2.data;
+          }
+        }
+      }
+      console.log("supa return : " , data)
+      const fav_list = (data || []).map((item: any) => ({
+        ...item,
+        favori_id: item.favori_id || item.id,
+      }));
+
       setRecipes(fav_list);
     } catch (err: any) {
       setError(err.message || 'Bir hata oluştu');
@@ -203,23 +250,25 @@ export default function FavoriteRecipesScreen() {
   }, [fetchFavorites]);
 
   const handleRecipePress = (recipe: FavoriteRecipe) => {
-    // selectedRecipe'i context'e set et, favoriteId'yi de (varsa)
+    const favId = recipe.favori_id || (recipe as any).id || (recipe as any)._id || 'favorited';
+
     setSelectedRecipe(recipe);
-    if (recipe.favori_id) {
-      setFavoriteId(String(recipe.favori_id));
-    }
-    router.push('/scanner/recipe-cooking');
+    setFavoriteId(String(favId));
+
+    requestAnimationFrame(() => {
+      router.push('/scanner/recipe-cooking');
+    });
   };
 
   // ── Loading State ──
   if (loading) {
     return (
       <SafeAreaView
-        style={{ flex: 1, backgroundColor: '#0F172A', justifyContent: 'center', alignItems: 'center' }}
+        style={{ flex: 1, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' }}
         edges={['bottom']}
       >
         <ActivityIndicator size="large" color="#FF6B35" />
-        <Text style={{ color: '#64748B', fontSize: 13, fontWeight: '600', marginTop: 12 }}>
+        <Text style={{ color: colors.textMuted, fontSize: 13, fontWeight: '600', marginTop: 12 }}>
           Favori tarifler yükleniyor...
         </Text>
       </SafeAreaView>
@@ -230,7 +279,7 @@ export default function FavoriteRecipesScreen() {
   if (error) {
     return (
       <SafeAreaView
-        style={{ flex: 1, backgroundColor: '#0F172A', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32 }}
+        style={{ flex: 1, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32 }}
         edges={['bottom']}
       >
         <View
@@ -274,10 +323,10 @@ export default function FavoriteRecipesScreen() {
   if (recipes.length === 0) {
     return (
       <SafeAreaView
-        style={{ flex: 1, backgroundColor: '#0F172A', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32 }}
+        style={{ flex: 1, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32 }}
         edges={['bottom']}
       >
-        <StatusBar barStyle="light-content" />
+        <StatusBar barStyle={colors.statusBar || 'light-content'} />
         <View
           style={{
             width: 88,
@@ -323,8 +372,8 @@ export default function FavoriteRecipesScreen() {
 
   // ── Liste Görünümü ──
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#0F172A' }} edges={['bottom']}>
-      <StatusBar barStyle="light-content" />
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['bottom']}>
+      <StatusBar barStyle={colors.statusBar || 'light-content'} />
 
       {/* Üst Bilgi */}
       <View

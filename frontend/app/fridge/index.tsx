@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { Platform } from 'react-native';
 import {
   View,
   Text,
@@ -6,20 +7,22 @@ import {
   ScrollView,
   TouchableOpacity,
   StatusBar,
-  Alert,
   Modal,
   Image,
   Animated,
   Easing,
   KeyboardAvoidingView,
-  Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import LottieView from 'lottie-react-native';
 import { useImagePicker, ImagePickerResult } from '@/hooks/useImagePicker';
 import { useFridge } from '@/hooks/useFridge';
+import { useAlert } from '@/contexts/AlertContext';
+import { useTheme } from '@/contexts/ThemeContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { useAllergens } from '@/hooks/useAllergens';
 import { BASE_URL, ENDPOINTS } from '@/constants/ApiConfig';
 import {
   Ingredient,
@@ -41,6 +44,8 @@ function FridgeItemChip({
   isTooltipVisible: boolean;
   onPress: () => void;
 }) {
+  const { colors } = useTheme();
+
   return (
     <View style={{ position: 'relative', margin: 4 }}>
       {/* Tooltip */}
@@ -52,21 +57,23 @@ function FridgeItemChip({
             left: '50%',
             transform: [{ translateX: -50 }],
             marginBottom: 6,
-            backgroundColor: '#334155',
+            backgroundColor: colors.card,
             borderRadius: 8,
             paddingHorizontal: 10,
             paddingVertical: 5,
             zIndex: 999,
             minWidth: 80,
             alignItems: 'center',
-            shadowColor: '#000',
+            borderWidth: 1,
+            borderColor: colors.cardBorder,
+            shadowColor: colors.cardBorder,
             shadowOffset: { width: 0, height: 2 },
             shadowOpacity: 0.3,
             shadowRadius: 4,
             elevation: 8,
           }}
         >
-          <Text style={{ color: '#F1F5F9', fontSize: 12, fontWeight: '600' }}>
+          <Text style={{ color: colors.textPrimary, fontSize: 12, fontWeight: '600' }}>
             {item.miktar} {item.birim}
           </Text>
           {/* Tooltip arrow */}
@@ -83,7 +90,7 @@ function FridgeItemChip({
               borderTopWidth: 5,
               borderLeftColor: 'transparent',
               borderRightColor: 'transparent',
-              borderTopColor: '#334155',
+              borderTopColor: colors.cardBorder,
             }}
           />
         </View>
@@ -93,19 +100,17 @@ function FridgeItemChip({
         activeOpacity={0.7}
         onPress={onPress}
         style={{
-          backgroundColor: 'rgba(30, 41, 59, 0.6)',
+          backgroundColor: isTooltipVisible ? 'rgba(255, 107, 53, 0.15)' : colors.card,
           borderRadius: 10,
           paddingHorizontal: 12,
           paddingVertical: 8,
           borderWidth: 1,
-          borderColor: isTooltipVisible
-            ? 'rgba(255, 107, 53, 0.4)'
-            : 'rgba(71, 85, 105, 0.3)',
+          borderColor: isTooltipVisible ? colors.primary : colors.cardBorder,
         }}
       >
         <Text
           style={{
-            color: isTooltipVisible ? '#FF6B35' : '#E2E8F0',
+            color: isTooltipVisible ? colors.primary : colors.textPrimary,
             fontSize: 13,
             fontWeight: '600',
             textTransform: 'capitalize',
@@ -122,8 +127,12 @@ function FridgeItemChip({
 export default function FridgeScreen() {
   const router = useRouter();
   const { pickImage, loading: pickLoading } = useImagePicker();
+  const { showAlert } = useAlert();
+  const { colors } = useTheme();
+  const { user } = useAuth();
+  const { allergens } = useAllergens();
   const {
-    items: fridgeItems,
+    items: fridgeItems = [],
     loading: fridgeLoading,
     updateItems,
     addItem,
@@ -133,10 +142,99 @@ export default function FridgeScreen() {
 
   // ── State'ler ──
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isMarketLoading, setIsMarketLoading] = useState(false);
   const [selectedImage, setSelectedImage] = useState<ImagePickerResult | null>(null);
   const [syncIngredients, setSyncIngredients] = useState<Ingredient[] | null>(null);
   const [dropdownIngredientId, setDropdownIngredientId] = useState<string | null>(null);
   const [tooltipId, setTooltipId] = useState<string | null>(null);
+
+  // Market listesi tercih modalı state'leri
+  const [showMarketOptionsModal, setShowMarketOptionsModal] = useState(false);
+  const [marketKisiSayisi, setMarketKisiSayisi] = useState('2');
+  const [marketSureDakika, setMarketSureDakika] = useState('30');
+  const [marketDiyet, setMarketDiyet] = useState('normal');
+  const [marketHedef, setMarketHedef] = useState('kilo_verme');
+  const [marketOgun, setMarketOgun] = useState('kahvaltı');
+  const [selectedAllergens, setSelectedAllergens] = useState<string[]>([]);
+
+  // Kullanıcı alerjenlerini varsayılan seçili hale getir
+  useEffect(() => {
+    if (allergens && allergens.length > 0) {
+      setSelectedAllergens(allergens.map((a) => a.allergen_name));
+    }
+  }, [allergens]);
+
+  // AI Market Listesi Oluşturma Handler (Dinamik Kullanıcı Seçimleriyle)
+  const handleGenerateMarketList = async () => {
+    if (!fridgeItems || fridgeItems.length === 0) return;
+    setIsMarketLoading(true);
+
+    const malzemelerFormatted = fridgeItems.map(
+      (item) => `${item.ad}${item.miktar ? ' ' + item.miktar : ''}${item.birim ? ' ' + item.birim : ''}`.trim()
+    );
+
+    const body = {
+      malzemeler: malzemelerFormatted,
+      kisi_sayisi: parseInt(marketKisiSayisi, 10) || 2,
+      sure_dakika: parseInt(marketSureDakika, 10) || 30,
+      diyet: marketDiyet,
+      hedef: marketHedef,
+      ogun: marketOgun,
+      alerjenler: selectedAllergens,
+      kullanici_id: user?.id || 'test_user_vision',
+    };
+
+    console.log('[MarketListesi] Gönderilen Body:', JSON.stringify(body, null, 2));
+
+    try {
+      const response = await fetch(`${BASE_URL}${ENDPOINTS.marketListesi}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      });
+
+      const data = await response.json();
+      console.log('[MarketListesi] Yanıt:', JSON.stringify(data, null, 2));
+
+      if (!response.ok) {
+        showAlert({
+          title: 'Hata',
+          message: 'Market listesi oluşturulurken bir hata oluştu.',
+          type: 'error',
+        });
+        return;
+      }
+
+      if (data.eksik_malzemeler) {
+        setShowMarketOptionsModal(false);
+        router.push({
+          pathname: '/scanner/ingredient-edit',
+          params: {
+            missingList: JSON.stringify(data.eksik_malzemeler),
+            isMarketList: 'true',
+            kaynak: 'gemini',
+          },
+        });
+      } else {
+        showAlert({
+          title: 'Hata',
+          message: 'Market listesi verisi alınamadı.',
+          type: 'error',
+        });
+      }
+    } catch (error) {
+      console.error('[MarketListesi] Fetch hatası:', error);
+      showAlert({
+        title: 'Bağlantı Hatası',
+        message: 'Sunucuya ulaşılamadı. Lütfen internet bağlantınızı kontrol edin.',
+        type: 'error',
+      });
+    } finally {
+      setIsMarketLoading(false);
+    }
+  };
 
   // Manuel ekleme
   const [showAddForm, setShowAddForm] = useState(false);
@@ -188,7 +286,7 @@ export default function FridgeScreen() {
   const { topItems, bottomItems } = useMemo(() => {
     const top: Ingredient[] = [];
     const bottom: Ingredient[] = [];
-    fridgeItems.forEach((item, idx) => {
+    (fridgeItems || []).forEach((item, idx) => {
       if (idx % 2 === 0) top.push(item);
       else bottom.push(item);
     });
@@ -198,16 +296,15 @@ export default function FridgeScreen() {
   // ── Aksiyon Fonksiyonları ──
 
   const promptImageSource = () => {
-    Alert.alert(
-      'Görüntü Kaynağı',
-      'Lütfen bir seçenek belirleyin:',
-      [
-        { text: 'İptal', style: 'cancel' },
-        { text: 'Kamera', onPress: () => handleImagePick('camera') },
-        { text: 'Galeri', onPress: () => handleImagePick('gallery') },
-      ],
-      { cancelable: true }
-    );
+    showAlert({
+      title: 'Görüntü Kaynağı',
+      message: 'Lütfen bir seçenek belirleyin:',
+      type: 'confirm',
+      confirmText: 'Kamera',
+      cancelText: 'Galeri',
+      onConfirm: () => handleImagePick('camera'),
+      onCancel: () => handleImagePick('gallery'),
+    });
   };
 
   const handleImagePick = async (source: 'camera' | 'gallery') => {
@@ -248,7 +345,7 @@ export default function FridgeScreen() {
 
       if (!response.ok) {
         console.error('[FRIDGE] API hatası, status:', response.status, data);
-        Alert.alert('API Hatası', `Sunucu hatası: ${response.status}`);
+        showAlert({ title: 'API Hatası', message: `Sunucu hatası: ${response.status}`, type: 'error' });
         setIsAnalyzing(false);
         return;
       }
@@ -269,7 +366,7 @@ export default function FridgeScreen() {
       setSyncIngredients(parsed);
     } catch (error) {
       console.error('[FRIDGE] Fetch hatası:', error);
-      Alert.alert('Bağlantı Hatası', 'Sunucuya ulaşılamadı. İnternet bağlantınızı kontrol edin.');
+      showAlert({ title: 'Bağlantı Hatası', message: 'Sunucuya ulaşılamadı. İnternet bağlantınızı kontrol edin.', type: 'error' });
       setIsAnalyzing(false);
     }
   };
@@ -299,7 +396,7 @@ export default function FridgeScreen() {
   // Ürün ekle (senkronizasyon listesine)
   const handleAddToSyncList = () => {
     if (!newName.trim()) {
-      Alert.alert('Hata', 'Ürün adı boş olamaz.');
+      showAlert({ title: 'Hata', message: 'Ürün adı boş olamaz.', type: 'warning' });
       return;
     }
     const newItem: Ingredient = {
@@ -324,19 +421,19 @@ export default function FridgeScreen() {
       return item.miktar.trim() === '' || isNaN(val) || val <= 0;
     });
     if (hasAnyError) {
-      Alert.alert('Hata', 'Lütfen tüm miktarları kontrol edin.');
+      showAlert({ title: 'Hata', message: 'Lütfen tüm miktarları kontrol edin.', type: 'warning' });
       return;
     }
 
     await updateItems(syncIngredients);
     setSyncIngredients(null);
-    Alert.alert('Başarılı', 'Buzdolabınız güncellendi!');
+    showAlert({ title: 'Başarılı', message: 'Buzdolabınız güncellendi!', type: 'success' });
   };
 
   // Manuel ürün ekle (direkt buzdolabına)
   const handleAddDirectly = () => {
     if (!newName.trim()) {
-      Alert.alert('Hata', 'Ürün adı boş olamaz.');
+      showAlert({ title: 'Hata', message: 'Ürün adı boş olamaz.', type: 'warning' });
       return;
     }
     addItem({
@@ -353,8 +450,8 @@ export default function FridgeScreen() {
   // ─────────── Loading / Analyzing Screen ───────────
   if (isAnalyzing) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#0F172A' }}>
-        <StatusBar barStyle="light-content" />
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+        <StatusBar barStyle={colors.statusBar} />
         <View
           style={{
             flex: 1,
@@ -363,57 +460,21 @@ export default function FridgeScreen() {
             paddingHorizontal: 32,
           }}
         >
-          <View
-            style={{
-              width: 260,
-              height: 260,
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderRadius: 130,
-              backgroundColor: 'rgba(255, 107, 53, 0.04)',
-              overflow: 'hidden',
-            }}
-          >
-            <LottieView
-              source={require('@/assets/animations/ImageScanningAnimation.json')}
-              autoPlay
-              loop
-              style={{ width: '85%', height: '85%' }}
-              resizeMode="contain"
-            />
-          </View>
-
-          <Animated.Text
-            style={{
-              color: '#F1F5F9',
-              fontSize: 20,
-              fontWeight: '700',
-              marginTop: 36,
-              letterSpacing: -0.3,
-              opacity: pulseAnim,
-            }}
-          >
-            Buzdolabınız analiz ediliyor...
-          </Animated.Text>
-
-          <Text
-            style={{
-              color: '#64748B',
-              fontSize: 14,
-              fontWeight: '500',
-              marginTop: 10,
-              textAlign: 'center',
-              lineHeight: 20,
-            }}
-          >
-            AI, buzdolabınızdaki malzemeleri{'\n'}tanımlıyor
+          <Animated.View style={{ opacity: pulseAnim }}>
+            <Ionicons name="scan-circle-outline" size={80} color={colors.primary} />
+          </Animated.View>
+          <Text style={{ color: colors.textPrimary, fontSize: 18, fontWeight: '800', marginTop: 24, textAlign: 'center' }}>
+            Buzdolabınız Analiz Ediliyor
+          </Text>
+          <Text style={{ color: colors.textMuted, fontSize: 13, fontWeight: '500', marginTop: 8, textAlign: 'center', lineHeight: 18 }}>
+            Görsel işleniyor ve içindeki malzemeler tespit ediliyor...
           </Text>
         </View>
       </SafeAreaView>
     );
   }
 
-  // ─────────── Senkronizasyon Sonuç Ekranı ───────────
+  // ─────────── Senkronizasyon Onay Ekranı ───────────
   if (syncIngredients !== null) {
     const hasAnyError = syncIngredients.some((item) => {
       const val = parseFloat(item.miktar);
@@ -421,72 +482,39 @@ export default function FridgeScreen() {
     });
 
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#0F172A' }} edges={['bottom']}>
-        <StatusBar barStyle="light-content" />
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={{ flex: 1 }}
-        >
-          {/* Header Info */}
-          <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 14 }}>
-            <View
-              style={{
-                backgroundColor: 'rgba(255, 107, 53, 0.08)',
-                borderRadius: 14,
-                paddingHorizontal: 14,
-                paddingVertical: 12,
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 10,
-                borderWidth: 1,
-                borderColor: 'rgba(255, 107, 53, 0.2)',
-              }}
-            >
-              <Ionicons name="snow-outline" size={18} color="#FF6B35" />
-              <View style={{ flex: 1 }}>
-                <Text style={{ color: '#F1F5F9', fontSize: 14, fontWeight: '700' }}>
-                  Buzdolabı Analiz Sonucu
-                </Text>
-                <Text style={{ color: '#94A3B8', fontSize: 12, fontWeight: '500', marginTop: 2 }}>
-                  {syncIngredients.length} malzeme tespit edildi — miktarları düzenleyebilirsiniz
-                </Text>
-              </View>
-            </View>
-          </View>
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+        <StatusBar barStyle={colors.statusBar} />
 
-          {/* Malzeme Listesi */}
+        <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
           <ScrollView
-            style={{ flex: 1 }}
-            contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 16 }}
             showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 24 }}
           >
+            <View style={{ marginBottom: 16 }}>
+              <Text style={{ color: colors.textPrimary, fontSize: 20, fontWeight: '800', letterSpacing: -0.4 }}>
+                Tespit Edilen Malzemeler
+              </Text>
+              <Text style={{ color: colors.textMuted, fontSize: 13, fontWeight: '500', marginTop: 4 }}>
+                Miktarları düzenleyebilir veya eksik ürün ekleyebilirsiniz.
+              </Text>
+            </View>
+
             {syncIngredients.map((item) => (
               <IngredientEditCard
                 key={item.id}
                 ingredient={item}
                 onMiktarChange={handleSyncMiktarChange}
-                onBirimPress={(id) => setDropdownIngredientId(id)}
+                onBirimPress={setDropdownIngredientId}
                 onDelete={handleSyncDelete}
               />
             ))}
 
-            {syncIngredients.length === 0 && (
-              <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 60 }}>
-                <Ionicons name="alert-circle-outline" size={48} color="#475569" />
-                <Text style={{ color: '#64748B', fontSize: 16, fontWeight: '600', marginTop: 12 }}>
-                  Malzeme bulunamadı
-                </Text>
-              </View>
-            )}
-
-            {/* ── Ürün Ekle Butonu ── */}
             {!showAddForm ? (
               <TouchableOpacity
                 activeOpacity={0.8}
                 onPress={() => setShowAddForm(true)}
                 style={{
-                  marginTop: 6,
+                  marginTop: 12,
                   backgroundColor: 'rgba(255, 107, 53, 0.08)',
                   borderRadius: 14,
                   paddingVertical: 14,
@@ -499,8 +527,8 @@ export default function FridgeScreen() {
                   gap: 8,
                 }}
               >
-                <Ionicons name="add-circle-outline" size={20} color="#FF6B35" />
-                <Text style={{ color: '#FF6B35', fontSize: 14, fontWeight: '700' }}>
+                <Ionicons name="add-circle-outline" size={20} color={colors.primary} />
+                <Text style={{ color: colors.primary, fontSize: 14, fontWeight: '700' }}>
                   Ürün Ekle
                 </Text>
               </TouchableOpacity>
@@ -524,8 +552,8 @@ export default function FridgeScreen() {
               paddingHorizontal: 16,
               paddingVertical: 14,
               borderTopWidth: 1,
-              borderTopColor: 'rgba(71, 85, 105, 0.2)',
-              backgroundColor: '#0F172A',
+              borderTopColor: colors.divider,
+              backgroundColor: colors.background,
               gap: 10,
             }}
           >
@@ -533,14 +561,14 @@ export default function FridgeScreen() {
               onPress={handleSaveToFridge}
               activeOpacity={0.8}
               style={{
-                backgroundColor: hasAnyError ? 'rgba(255, 107, 53, 0.4)' : '#FF6B35',
+                backgroundColor: hasAnyError ? 'rgba(255, 107, 53, 0.4)' : colors.primary,
                 paddingVertical: 16,
                 borderRadius: 14,
                 alignItems: 'center',
                 flexDirection: 'row',
                 justifyContent: 'center',
                 gap: 8,
-                shadowColor: '#FF6B35',
+                shadowColor: colors.primary,
                 shadowOffset: { width: 0, height: 4 },
                 shadowOpacity: hasAnyError ? 0 : 0.25,
                 shadowRadius: 12,
@@ -567,17 +595,19 @@ export default function FridgeScreen() {
               onPress={() => setSyncIngredients(null)}
               activeOpacity={0.7}
               style={{
-                backgroundColor: 'rgba(71, 85, 105, 0.3)',
+                backgroundColor: colors.card,
                 paddingVertical: 14,
                 borderRadius: 14,
+                borderWidth: 1,
+                borderColor: colors.cardBorder,
                 alignItems: 'center',
                 flexDirection: 'row',
                 justifyContent: 'center',
                 gap: 8,
               }}
             >
-              <Ionicons name="close-circle" size={18} color="#94A3B8" />
-              <Text style={{ color: '#94A3B8', fontSize: 15, fontWeight: '600' }}>
+              <Ionicons name="close-circle" size={18} color={colors.textMuted} />
+              <Text style={{ color: colors.textMuted, fontSize: 15, fontWeight: '600' }}>
                 İptal Et
               </Text>
             </TouchableOpacity>
@@ -605,8 +635,8 @@ export default function FridgeScreen() {
 
   // ─────────── Ana Buzdolabım Ekranı ───────────
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#0F172A' }} edges={['bottom']}>
-      <StatusBar barStyle="light-content" />
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['bottom']}>
+      <StatusBar barStyle={colors.statusBar} />
 
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -622,13 +652,13 @@ export default function FridgeScreen() {
               width: '100%',
               flexDirection: 'row',
               alignItems: 'center',
-              backgroundColor: 'rgba(30, 41, 59, 1)',
+              backgroundColor: colors.card,
               borderRadius: 20,
               paddingVertical: 22,
               paddingHorizontal: 20,
               borderWidth: 1,
-              borderColor: 'rgba(255, 107, 53, 0.25)',
-              shadowColor: '#FF6B35',
+              borderColor: colors.cardBorder,
+              shadowColor: colors.primary,
               shadowOffset: { width: 0, height: 4 },
               shadowOpacity: 0.15,
               shadowRadius: 12,
@@ -652,7 +682,7 @@ export default function FridgeScreen() {
             <View style={{ flex: 1 }}>
               <Text
                 style={{
-                  color: '#F1F5F9',
+                  color: colors.textPrimary,
                   fontSize: 17,
                   fontWeight: '800',
                   letterSpacing: -0.3,
@@ -663,7 +693,7 @@ export default function FridgeScreen() {
               </Text>
               <Text
                 style={{
-                  color: '#94A3B8',
+                  color: colors.textSecondary,
                   fontSize: 12,
                   fontWeight: '500',
                   lineHeight: 17,
@@ -673,19 +703,95 @@ export default function FridgeScreen() {
               </Text>
             </View>
 
-            <Ionicons name="chevron-forward" size={20} color="#475569" />
+            <Ionicons name="chevron-forward" size={20} color={colors.iconDefault} />
           </TouchableOpacity>
         </View>
 
+        {/* ── Eksik Listemi Oluştur Butonu (Buzdolabı ikizi varsa) ── */}
+        {fridgeItems && fridgeItems.length > 0 && (
+          <View style={{ paddingHorizontal: 16, marginBottom: 20 }}>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => setShowMarketOptionsModal(true)}
+              style={{
+                width: '100%',
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: colors.card,
+                borderRadius: 20,
+                paddingVertical: 18,
+                paddingHorizontal: 20,
+                borderWidth: 1,
+                borderColor: 'rgba(16, 185, 129, 0.35)',
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.2,
+                shadowRadius: 8,
+                elevation: 4,
+              }}
+            >
+              <View
+                style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: 14,
+                  backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: 16,
+                }}
+              >
+                <Text style={{ fontSize: 24 }}>🛒</Text>
+              </View>
+
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={{
+                    color: colors.textPrimary,
+                    fontSize: 16,
+                    fontWeight: '800',
+                    letterSpacing: -0.3,
+                    marginBottom: 3,
+                  }}
+                >
+                  Eksik Listemi Oluştur
+                </Text>
+                <Text
+                  style={{
+                    color: colors.textSecondary,
+                    fontSize: 11,
+                    fontWeight: '500',
+                  }}
+                >
+                  1 haftalık eksik listeni AI ile oluştur
+                </Text>
+              </View>
+
+              <View
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 10,
+                  backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Ionicons name="sparkles" size={18} color="#10B981" />
+              </View>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* ── Buzdolabı Görünümü ── */}
-        {fridgeItems.length > 0 ? (
+        {(fridgeItems && fridgeItems.length > 0) ? (
           <View style={{ paddingHorizontal: 16 }}>
             {/* Bölüm başlığı */}
             <Text
               style={{
-                color: '#475569',
+                color: colors.textPrimary,
                 fontSize: 11,
-                fontWeight: '700',
+                fontWeight: '800',
                 letterSpacing: 1,
                 textTransform: 'uppercase',
                 marginBottom: 12,
@@ -698,10 +804,10 @@ export default function FridgeScreen() {
             {/* Buzdolabı kasası */}
             <View
               style={{
-                backgroundColor: '#1E293B',
+                backgroundColor: colors.card,
                 borderRadius: 24,
                 borderWidth: 2,
-                borderColor: 'rgba(71, 85, 105, 0.4)',
+                borderColor: colors.cardBorder,
                 overflow: 'hidden',
               }}
             >
@@ -717,7 +823,7 @@ export default function FridgeScreen() {
                   style={{
                     width: 6,
                     height: 40,
-                    backgroundColor: 'rgba(148, 163, 184, 0.4)',
+                    backgroundColor: colors.iconDefault,
                     borderRadius: 3,
                   }}
                 />
@@ -728,10 +834,12 @@ export default function FridgeScreen() {
                 style={{
                   marginHorizontal: 12,
                   marginTop: 4,
-                  backgroundColor: '#F1EFE7',
+                  backgroundColor: colors.cardHighlight,
                   borderRadius: 16,
                   padding: 14,
                   minHeight: 80,
+                  borderWidth: 1,
+                  borderColor: colors.cardBorder,
                 }}
               >
                 <View
@@ -753,7 +861,7 @@ export default function FridgeScreen() {
                   ))}
                 </View>
                 {topItems.length === 0 && (
-                  <Text style={{ color: '#94A3B8', fontSize: 12, fontWeight: '500', textAlign: 'center', paddingVertical: 12 }}>
+                  <Text style={{ color: colors.textMuted, fontSize: 12, fontWeight: '500', textAlign: 'center', paddingVertical: 12 }}>
                     Üst bölme boş
                   </Text>
                 )}
@@ -763,7 +871,7 @@ export default function FridgeScreen() {
               <View
                 style={{
                   height: 2,
-                  backgroundColor: 'rgba(71, 85, 105, 0.3)',
+                  backgroundColor: colors.divider,
                   marginHorizontal: 12,
                   marginVertical: 8,
                 }}
@@ -774,10 +882,12 @@ export default function FridgeScreen() {
                 style={{
                   marginHorizontal: 12,
                   marginBottom: 12,
-                  backgroundColor: '#EAE9DF',
+                  backgroundColor: colors.cardHighlight,
                   borderRadius: 16,
                   padding: 14,
                   minHeight: 80,
+                  borderWidth: 1,
+                  borderColor: colors.cardBorder,
                 }}
               >
                 <View
@@ -799,7 +909,7 @@ export default function FridgeScreen() {
                   ))}
                 </View>
                 {bottomItems.length === 0 && (
-                  <Text style={{ color: '#94A3B8', fontSize: 12, fontWeight: '500', textAlign: 'center', paddingVertical: 12 }}>
+                  <Text style={{ color: colors.textMuted, fontSize: 12, fontWeight: '500', textAlign: 'center', paddingVertical: 12 }}>
                     Alt bölme boş
                   </Text>
                 )}
@@ -817,7 +927,7 @@ export default function FridgeScreen() {
                   style={{
                     width: 6,
                     height: 30,
-                    backgroundColor: 'rgba(148, 163, 184, 0.4)',
+                    backgroundColor: colors.iconDefault,
                     borderRadius: 3,
                   }}
                 />
@@ -828,7 +938,7 @@ export default function FridgeScreen() {
             <View
               style={{
                 marginTop: 12,
-                backgroundColor: 'rgba(255, 107, 53, 0.06)',
+                backgroundColor: 'rgba(255, 107, 53, 0.08)',
                 borderRadius: 12,
                 paddingHorizontal: 14,
                 paddingVertical: 10,
@@ -836,11 +946,11 @@ export default function FridgeScreen() {
                 alignItems: 'center',
                 gap: 8,
                 borderWidth: 1,
-                borderColor: 'rgba(255, 107, 53, 0.12)',
+                borderColor: 'rgba(255, 107, 53, 0.2)',
               }}
             >
-              <Ionicons name="information-circle-outline" size={16} color="#FF6B35" />
-              <Text style={{ color: '#94A3B8', fontSize: 12, fontWeight: '500', flex: 1 }}>
+              <Ionicons name="information-circle-outline" size={16} color={colors.primary} />
+              <Text style={{ color: colors.textSecondary, fontSize: 12, fontWeight: '500', flex: 1 }}>
                 Malzemelere dokunarak miktar ve birim bilgisini görebilirsiniz
               </Text>
             </View>
@@ -864,8 +974,8 @@ export default function FridgeScreen() {
                   gap: 8,
                 }}
               >
-                <Ionicons name="add-circle-outline" size={20} color="#FF6B35" />
-                <Text style={{ color: '#FF6B35', fontSize: 14, fontWeight: '700' }}>
+                <Ionicons name="add-circle-outline" size={20} color={colors.primary} />
+                <Text style={{ color: colors.primary, fontSize: 14, fontWeight: '700' }}>
                   Ürün Ekle
                 </Text>
               </TouchableOpacity>
@@ -889,10 +999,10 @@ export default function FridgeScreen() {
           <View style={{ paddingHorizontal: 16, alignItems: 'center', paddingTop: 40 }}>
             <View
               style={{
-                backgroundColor: '#1E293B',
+                backgroundColor: colors.card,
                 borderRadius: 24,
                 borderWidth: 2,
-                borderColor: 'rgba(71, 85, 105, 0.4)',
+                borderColor: colors.cardBorder,
                 paddingVertical: 50,
                 paddingHorizontal: 30,
                 alignItems: 'center',
@@ -902,9 +1012,9 @@ export default function FridgeScreen() {
               <Text style={{ fontSize: 56, marginBottom: 16 }}>🧊</Text>
               <Text
                 style={{
-                  color: '#64748B',
+                  color: colors.textPrimary,
                   fontSize: 16,
-                  fontWeight: '600',
+                  fontWeight: '700',
                   textAlign: 'center',
                 }}
               >
@@ -912,7 +1022,7 @@ export default function FridgeScreen() {
               </Text>
               <Text
                 style={{
-                  color: '#475569',
+                  color: colors.textMuted,
                   fontSize: 13,
                   fontWeight: '500',
                   textAlign: 'center',
@@ -944,8 +1054,8 @@ export default function FridgeScreen() {
                   width: '100%',
                 }}
               >
-                <Ionicons name="add-circle-outline" size={20} color="#FF6B35" />
-                <Text style={{ color: '#FF6B35', fontSize: 14, fontWeight: '700' }}>
+                <Ionicons name="add-circle-outline" size={20} color={colors.primary} />
+                <Text style={{ color: colors.primary, fontSize: 14, fontWeight: '700' }}>
                   Manuel Ürün Ekle
                 </Text>
               </TouchableOpacity>
@@ -974,21 +1084,21 @@ export default function FridgeScreen() {
         animationType="slide"
         onRequestClose={closePreview}
       >
-        <View style={{ flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.95)', justifyContent: 'center', padding: 20 }}>
-          <Text style={{ color: '#fff', fontSize: 20, fontWeight: 'bold', textAlign: 'center', marginBottom: 20 }}>
+        <View style={{ flex: 1, backgroundColor: colors.overlay, justifyContent: 'center', padding: 20 }}>
+          <Text style={{ color: colors.textPrimary, fontSize: 20, fontWeight: 'bold', textAlign: 'center', marginBottom: 20 }}>
             Fotoğraf Önizleme
           </Text>
 
           <View
             style={{
-              backgroundColor: '#1E293B',
+              backgroundColor: colors.card,
               borderRadius: 20,
               overflow: 'hidden',
               aspectRatio: 3 / 4,
               width: '100%',
               marginBottom: 30,
               borderWidth: 1,
-              borderColor: 'rgba(71, 85, 105, 0.5)',
+              borderColor: colors.cardBorder,
             }}
           >
             {selectedImage?.uri && (
@@ -1005,24 +1115,26 @@ export default function FridgeScreen() {
               onPress={retakeImage}
               style={{
                 flex: 1,
-                backgroundColor: 'rgba(71, 85, 105, 0.5)',
+                backgroundColor: colors.card,
                 paddingVertical: 16,
                 borderRadius: 14,
+                borderWidth: 1,
+                borderColor: colors.cardBorder,
                 alignItems: 'center',
                 flexDirection: 'row',
                 justifyContent: 'center',
                 gap: 8,
               }}
             >
-              <Ionicons name="camera-reverse" size={20} color="#F1F5F9" />
-              <Text style={{ color: '#F1F5F9', fontSize: 16, fontWeight: '700' }}>Tekrar Çek</Text>
+              <Ionicons name="camera-reverse" size={20} color={colors.textPrimary} />
+              <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: '700' }}>Tekrar Çek</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               onPress={confirmImage}
               style={{
                 flex: 1,
-                backgroundColor: '#FF6B35',
+                backgroundColor: colors.primary,
                 paddingVertical: 16,
                 borderRadius: 14,
                 alignItems: 'center',
@@ -1040,7 +1152,7 @@ export default function FridgeScreen() {
             onPress={closePreview}
             style={{ marginTop: 20, alignItems: 'center', paddingVertical: 10 }}
           >
-            <Text style={{ color: '#94A3B8', fontSize: 16, fontWeight: '600' }}>İptal</Text>
+            <Text style={{ color: colors.textMuted, fontSize: 16, fontWeight: '600' }}>İptal</Text>
           </TouchableOpacity>
         </View>
       </Modal>
@@ -1052,6 +1164,271 @@ export default function FridgeScreen() {
         onSelect={(v) => setNewBirim(v)}
         onClose={() => setShowNewBirimPicker(false)}
       />
+
+      {/* ── Market Listesi Tercih Modalı ── */}
+      <Modal
+        visible={showMarketOptionsModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowMarketOptionsModal(false)}
+      >
+        <View style={{ flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.75)', justifyContent: 'flex-end',marginBottom:-65 }}>
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+            <View
+              style={{
+                backgroundColor: '#1E293B',
+                borderTopLeftRadius: 28,
+                borderTopRightRadius: 28,
+                padding: 24,
+                maxHeight: '90%',
+                borderTopWidth: 1,
+                borderColor: 'rgba(71, 85, 105, 0.4)',
+              }}
+            >
+              {/* Handle bar */}
+              <View
+                style={{
+                  width: 40,
+                  height: 4,
+                  backgroundColor: 'rgba(71, 85, 105, 0.5)',
+                  borderRadius: 2,
+                  alignSelf: 'center',
+                  marginBottom: 16,
+                }}
+              />
+
+              {/* Header */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <View
+                    style={{
+                      width: 42,
+                      height: 42,
+                      borderRadius: 12,
+                      backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <Ionicons name="sparkles" size={22} color="#10B981" />
+                  </View>
+                  <View>
+                    <Text style={{ color: '#F1F5F9', fontSize: 18, fontWeight: '800' }}>AI Market Tercihleri</Text>
+                    <Text style={{ color: '#94A3B8', fontSize: 12, fontWeight: '500' }}>Analiz için parametrelerinizi seçin</Text>
+                  </View>
+                </View>
+                <TouchableOpacity onPress={() => setShowMarketOptionsModal(false)}>
+                  <Ionicons name="close-circle" size={26} color="#64748B" />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 16, paddingBottom: 16 }}>
+                {/* Kişi Sayısı */}
+                <View>
+                  <Text style={{ color: '#CBD5E1', fontSize: 13, fontWeight: '700', marginBottom: 6 }}>Kişi Sayısı</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+                    {['1', '2', '3', '4', '5', '6', '8', '10'].map((num) => (
+                      <TouchableOpacity
+                        key={num}
+                        onPress={() => setMarketKisiSayisi(num)}
+                        style={{
+                          paddingHorizontal: 16,
+                          paddingVertical: 9,
+                          borderRadius: 10,
+                          backgroundColor: marketKisiSayisi === num ? 'rgba(16, 185, 129, 0.2)' : 'rgba(15, 23, 42, 0.6)',
+                          borderWidth: 1,
+                          borderColor: marketKisiSayisi === num ? '#10B981' : 'rgba(71, 85, 105, 0.3)',
+                          alignItems: 'center',
+                        }}
+                      >
+                        <Text style={{ color: marketKisiSayisi === num ? '#10B981' : '#94A3B8', fontWeight: '700', fontSize: 13 }}>{num} Kişi</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+
+                {/* Süre (dk) */}
+                <View style={{ marginTop: 4 }}>
+                  <Text style={{ color: '#CBD5E1', fontSize: 13, fontWeight: '700', marginBottom: 6 }}>Hazırlık & Pişirme Süresi</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+                    {['15', '30', '45', '60', '90', '120'].map((mins) => (
+                      <TouchableOpacity
+                        key={mins}
+                        onPress={() => setMarketSureDakika(mins)}
+                        style={{
+                          paddingHorizontal: 16,
+                          paddingVertical: 9,
+                          borderRadius: 10,
+                          backgroundColor: marketSureDakika === mins ? 'rgba(16, 185, 129, 0.2)' : 'rgba(15, 23, 42, 0.6)',
+                          borderWidth: 1,
+                          borderColor: marketSureDakika === mins ? '#10B981' : 'rgba(71, 85, 105, 0.3)',
+                          alignItems: 'center',
+                        }}
+                      >
+                        <Text style={{ color: marketSureDakika === mins ? '#10B981' : '#94A3B8', fontWeight: '700', fontSize: 12 }}>{mins} Dk</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+
+                {/* Diyet Tercihi */}
+                <View>
+                  <Text style={{ color: '#CBD5E1', fontSize: 13, fontWeight: '700', marginBottom: 6 }}>Diyet Tercihi</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+                    {[
+                      { id: 'normal', label: 'Normal' },
+                      { id: 'vejetaryen', label: 'Vejetaryen' },
+                      { id: 'vegan', label: 'Vegan' },
+                      { id: 'glutensiz', label: 'Glutensiz' },
+                      { id: 'ketojenik', label: 'Ketojenik' },
+                    ].map((d) => (
+                      <TouchableOpacity
+                        key={d.id}
+                        onPress={() => setMarketDiyet(d.id)}
+                        style={{
+                          paddingHorizontal: 14,
+                          paddingVertical: 8,
+                          borderRadius: 10,
+                          backgroundColor: marketDiyet === d.id ? 'rgba(16, 185, 129, 0.2)' : 'rgba(15, 23, 42, 0.6)',
+                          borderWidth: 1,
+                          borderColor: marketDiyet === d.id ? '#10B981' : 'rgba(71, 85, 105, 0.3)',
+                        }}
+                      >
+                        <Text style={{ color: marketDiyet === d.id ? '#10B981' : '#94A3B8', fontSize: 12, fontWeight: '700' }}>{d.label}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+
+                {/* Hedef */}
+                <View>
+                  <Text style={{ color: '#CBD5E1', fontSize: 13, fontWeight: '700', marginBottom: 6 }}>Beslenme Hedefi</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+                    {[
+                      { id: 'normal', label: 'Normal' },
+                      { id: 'kilo_verme', label: 'Kilo Verme' },
+                      { id: 'kas_kazanma', label: 'Kas Kazanma' },
+                      { id: 'form_koruma', label: 'Form Koruma' },
+                    ].map((h) => (
+                      <TouchableOpacity
+                        key={h.id}
+                        onPress={() => setMarketHedef(h.id)}
+                        style={{
+                          paddingHorizontal: 14,
+                          paddingVertical: 8,
+                          borderRadius: 10,
+                          backgroundColor: marketHedef === h.id ? 'rgba(16, 185, 129, 0.2)' : 'rgba(15, 23, 42, 0.6)',
+                          borderWidth: 1,
+                          borderColor: marketHedef === h.id ? '#10B981' : 'rgba(71, 85, 105, 0.3)',
+                        }}
+                      >
+                        <Text style={{ color: marketHedef === h.id ? '#10B981' : '#94A3B8', fontSize: 12, fontWeight: '700' }}>{h.label}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+
+                {/* Öğün */}
+                <View>
+                  <Text style={{ color: '#CBD5E1', fontSize: 13, fontWeight: '700', marginBottom: 6 }}>Hedef Öğün</Text>
+                  <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+                    {[
+                      { id: 'kahvaltı', label: 'Kahvaltı' },
+                      { id: 'öğle', label: 'Öğle' },
+                      { id: 'akşam', label: 'Akşam' },
+                      { id: 'ara_öğün', label: 'Ara Öğün' },
+                    ].map((o) => (
+                      <TouchableOpacity
+                        key={o.id}
+                        onPress={() => setMarketOgun(o.id)}
+                        style={{
+                          paddingHorizontal: 14,
+                          paddingVertical: 8,
+                          borderRadius: 10,
+                          backgroundColor: marketOgun === o.id ? 'rgba(16, 185, 129, 0.2)' : 'rgba(15, 23, 42, 0.6)',
+                          borderWidth: 1,
+                          borderColor: marketOgun === o.id ? '#10B981' : 'rgba(71, 85, 105, 0.3)',
+                        }}
+                      >
+                        <Text style={{ color: marketOgun === o.id ? '#10B981' : '#94A3B8', fontSize: 12, fontWeight: '700' }}>{o.label}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
+                {/* Alerjenler */}
+                <View>
+                  <Text style={{ color: '#CBD5E1', fontSize: 13, fontWeight: '700', marginBottom: 6 }}>Dikkate Alınacak Alerjenler</Text>
+                  {allergens && allergens.length > 0 ? (
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                      {allergens.map((alg) => {
+                        const isSelected = selectedAllergens.includes(alg.allergen_name);
+                        return (
+                          <TouchableOpacity
+                            key={alg.id}
+                            onPress={() => {
+                              if (isSelected) {
+                                setSelectedAllergens(selectedAllergens.filter((a) => a !== alg.allergen_name));
+                              } else {
+                                setSelectedAllergens([...selectedAllergens, alg.allergen_name]);
+                              }
+                            }}
+                            style={{
+                              paddingHorizontal: 12,
+                              paddingVertical: 6,
+                              borderRadius: 8,
+                              backgroundColor: isSelected ? 'rgba(239, 68, 68, 0.2)' : 'rgba(15, 23, 42, 0.6)',
+                              borderWidth: 1,
+                              borderColor: isSelected ? '#EF4444' : 'rgba(71, 85, 105, 0.3)',
+                            }}
+                          >
+                            <Text style={{ color: isSelected ? '#EF4444' : '#94A3B8', fontSize: 12, fontWeight: '600' }}>
+                              {isSelected ? '✓ ' : ''}{alg.allergen_name}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  ) : (
+                    <Text style={{ color: '#64748B', fontSize: 12, fontStyle: 'italic' }}>Kayıtlı alerjeniniz yok</Text>
+                  )}
+                </View>
+              </ScrollView>
+
+              {/* Submit Button */}
+              <TouchableOpacity
+                onPress={handleGenerateMarketList}
+                disabled={isMarketLoading}
+                activeOpacity={0.8}
+                style={{
+                  backgroundColor: '#10B981',
+                  paddingVertical: 16,
+                  borderRadius: 16,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexDirection: 'row',
+                  gap: 10,
+                  marginTop: 8,
+                  shadowColor: '#10B981',
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.3,
+                  shadowRadius: 10,
+                  elevation: 6,
+                }}
+              >
+                {isMarketLoading ? (
+                  <ActivityIndicator size="small" color="#FFF" />
+                ) : (
+                  <>
+                    <Ionicons name="sparkles" size={20} color="#FFF" />
+                    <Text style={{ color: '#FFF', fontSize: 16, fontWeight: '800' }}>AI ile Eksik Listesi Hazırla</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -1076,29 +1453,30 @@ function AddItemForm({
   onAdd: () => void;
   onCancel: () => void;
 }) {
+  const { colors } = useTheme();
 
   return (
     <View
       style={{
-        backgroundColor: '#1E293B',
+        backgroundColor: colors.card,
         borderRadius: 16,
         padding: 16,
         marginTop: 6,
         borderWidth: 1,
-        borderColor: 'rgba(255, 107, 53, 0.25)',
+        borderColor: 'rgba(255, 107, 53, 0.3)',
       }}
     >
-      <Text style={{ color: '#F1F5F9', fontSize: 14, fontWeight: '700', marginBottom: 12 }}>
+      <Text style={{ color: colors.textPrimary, fontSize: 14, fontWeight: '700', marginBottom: 12 }}>
         Yeni Ürün Ekle
       </Text>
 
       {/* İsim */}
       <View
         style={{
-          backgroundColor: 'rgba(15, 23, 42, 0.8)',
+          backgroundColor: colors.inputBg,
           borderRadius: 10,
           borderWidth: 1,
-          borderColor: 'rgba(71, 85, 105, 0.4)',
+          borderColor: colors.cardBorder,
           paddingHorizontal: 12,
           paddingVertical: 10,
           marginBottom: 10,
@@ -1108,8 +1486,8 @@ function AddItemForm({
           value={name}
           onChangeText={onNameChange}
           placeholder="Ürün adı"
-          placeholderTextColor="#475569"
-          style={{ color: '#F1F5F9', fontSize: 14, fontWeight: '600', padding: 0 }}
+          placeholderTextColor={colors.textMuted}
+          style={{ color: colors.textPrimary, fontSize: 14, fontWeight: '600', padding: 0 }}
         />
       </View>
 
@@ -1118,10 +1496,10 @@ function AddItemForm({
         <View
           style={{
             flex: 1,
-            backgroundColor: 'rgba(15, 23, 42, 0.8)',
+            backgroundColor: colors.inputBg,
             borderRadius: 10,
             borderWidth: 1,
-            borderColor: 'rgba(71, 85, 105, 0.4)',
+            borderColor: colors.cardBorder,
             paddingHorizontal: 12,
             paddingVertical: 10,
           }}
@@ -1130,9 +1508,9 @@ function AddItemForm({
             value={miktar}
             onChangeText={onMiktarChange}
             placeholder="Miktar"
-            placeholderTextColor="#475569"
+            placeholderTextColor={colors.textMuted}
             keyboardType="numeric"
-            style={{ color: '#F1F5F9', fontSize: 14, fontWeight: '600', padding: 0, textAlign: 'center' }}
+            style={{ color: colors.textPrimary, fontSize: 14, fontWeight: '600', padding: 0, textAlign: 'center' }}
           />
         </View>
 
@@ -1141,10 +1519,10 @@ function AddItemForm({
           activeOpacity={0.7}
           style={{
             flex: 1,
-            backgroundColor: 'rgba(15, 23, 42, 0.8)',
+            backgroundColor: colors.inputBg,
             borderRadius: 10,
             borderWidth: 1,
-            borderColor: 'rgba(71, 85, 105, 0.4)',
+            borderColor: colors.cardBorder,
             paddingHorizontal: 12,
             paddingVertical: 10,
             flexDirection: 'row',
@@ -1152,10 +1530,10 @@ function AddItemForm({
             justifyContent: 'space-between',
           }}
         >
-          <Text style={{ color: '#CBD5E1', fontSize: 13, fontWeight: '600' }} numberOfLines={1}>
+          <Text style={{ color: colors.textPrimary, fontSize: 13, fontWeight: '600' }} numberOfLines={1}>
             {BIRIM_LABELS[birim] || birim}
           </Text>
-          <Ionicons name="chevron-down" size={14} color="#64748B" />
+          <Ionicons name="chevron-down" size={14} color={colors.textMuted} />
         </TouchableOpacity>
       </View>
 
@@ -1169,10 +1547,10 @@ function AddItemForm({
             paddingVertical: 12,
             borderRadius: 12,
             alignItems: 'center',
-            backgroundColor: 'rgba(100, 116, 139, 0.15)',
+            backgroundColor: colors.badgeBg,
           }}
         >
-          <Text style={{ color: '#94A3B8', fontWeight: '700', fontSize: 14 }}>İptal</Text>
+          <Text style={{ color: colors.textMuted, fontWeight: '700', fontSize: 14 }}>İptal</Text>
         </TouchableOpacity>
         <TouchableOpacity
           onPress={onAdd}
@@ -1182,7 +1560,7 @@ function AddItemForm({
             paddingVertical: 12,
             borderRadius: 12,
             alignItems: 'center',
-            backgroundColor: '#FF6B35',
+            backgroundColor: colors.primary,
             flexDirection: 'row',
             justifyContent: 'center',
             gap: 6,

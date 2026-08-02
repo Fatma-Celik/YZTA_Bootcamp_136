@@ -1,48 +1,11 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { useColorScheme as useSystemColorScheme } from 'react-native';
-import { useAuth } from './AuthContext';
-import { useProfile } from '@/hooks/useProfile';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { darkColors, lightColors, ThemeColors } from '@/constants/Colors';
 
 export type ThemeMode = 'system' | 'light' | 'dark';
 
-export interface ThemeColors {
-  background: string;
-  card: string;
-  cardBorder: string;
-  textPrimary: string;
-  textSecondary: string;
-  textMuted: string;
-  divider: string;
-  inputBg: string;
-  primary: string;
-  statusBar: 'light-content' | 'dark-content';
-}
-
-const darkColors: ThemeColors = {
-  background: '#0F172A',
-  card: '#1E293B',
-  cardBorder: 'rgba(71, 85, 105, 0.3)',
-  textPrimary: '#F1F5F9',
-  textSecondary: '#94A3B8',
-  textMuted: '#64748B',
-  divider: 'rgba(71, 85, 105, 0.2)',
-  inputBg: 'rgba(15, 23, 42, 0.6)',
-  primary: '#FF6B35',
-  statusBar: 'light-content',
-};
-
-const lightColors: ThemeColors = {
-  background: '#F8FAFC',
-  card: '#FFFFFF',
-  cardBorder: 'rgba(203, 213, 225, 0.6)',
-  textPrimary: '#0F172A',
-  textSecondary: '#475569',
-  textMuted: '#94A3B8',
-  divider: 'rgba(203, 213, 225, 0.5)',
-  inputBg: '#F1F5F9',
-  primary: '#FF6B35',
-  statusBar: 'dark-content',
-};
+const THEME_STORAGE_KEY = '@app_theme_mode';
 
 interface ThemeContextType {
   mode: ThemeMode;
@@ -55,21 +18,33 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const systemScheme = useSystemColorScheme();
-  const { user } = useAuth();
-  const { profile, updateProfile } = useProfile();
-  const [localMode, setLocalMode] = useState<ThemeMode>('system');
+  const [localMode, setLocalMode] = useState<ThemeMode>('dark');
 
-  // Profil yüklenince kayıtlı tercihi uygula
+  // Uygulama açılışında AsyncStorage'dan kaydedilmiş temayı yükle
   useEffect(() => {
-    if (profile?.theme) setLocalMode(profile.theme as ThemeMode);
-  }, [profile?.theme]);
+    let isMounted = true;
+    (async () => {
+      try {
+        const stored = await AsyncStorage.getItem(THEME_STORAGE_KEY);
+        if (isMounted && (stored === 'system' || stored === 'light' || stored === 'dark')) {
+          setLocalMode(stored);
+        }
+      } catch (e) {
+        // Hata durumunda varsayılan dark tema ile devam et
+      }
+    })();
 
-  const isDark = localMode === 'system' ? systemScheme === 'dark' : localMode === 'dark';
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const isDark = localMode === 'system' ? systemScheme !== 'light' : localMode === 'dark';
   const colors = isDark ? darkColors : lightColors;
 
   const setMode = (m: ThemeMode) => {
     setLocalMode(m);
-    if (user) updateProfile({ theme: m }); // Supabase'e kaydet, kalıcı olsun
+    AsyncStorage.setItem(THEME_STORAGE_KEY, m).catch(() => {});
   };
 
   return (

@@ -1,73 +1,71 @@
-import { SymbolView } from 'expo-symbols';
-import { Link, Tabs } from 'expo-router';
-import { Platform, Pressable } from 'react-native';
+import { Tabs } from 'expo-router';
+import { View, Platform } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
-import Colors from '@/constants/Colors';
-import { useColorScheme } from '@/components/useColorScheme';
+import { useTheme } from '@/contexts/ThemeContext';
 import { useClientOnlyValue } from '@/components/useClientOnlyValue';
 import HomeHeader from '@/components/HomeHeader';
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
+  const { colors } = useTheme();
 
   return (
     <Tabs
       screenOptions={{
-        tabBarShowLabel:false,
-        tabBarActiveTintColor: Colors[colorScheme].tint,
-        // Disable the static render of the header on web
-        // to prevent a hydration error in React Navigation v6.
+        tabBarShowLabel: true,
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textMuted,
         headerShown: useClientOnlyValue(false, true),
-        tabBarInactiveTintColor: '#64748B',
-        tabBarStyle:{backgroundColor:"#0F172A"},
-        tabBarItemStyle:{justifyContent:'center',alignItems:'center',paddingTop:6}
-      }}>
+        tabBarStyle: {
+          backgroundColor: colors.tabBarBg,
+          borderTopColor: colors.cardBorder,
+          borderTopWidth: 1,
+          borderTopLeftRadius:15,
+          borderTopRightRadius:15,
+          height: Platform.OS === 'ios' ? 76 : 60,
+          paddingBottom: Platform.OS === 'ios' ? 20 : 6,
+          paddingTop: 4,
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          elevation: 12,
+          shadowColor: colors.cardBorder,
+          shadowOffset: { width: 0, height: -4 },
+          shadowOpacity: 0.12,
+          shadowRadius: 8,
+        },
+        tabBarLabelStyle: {
+          fontSize: 10,
+          fontWeight: '700',
+          marginTop: 1,
+        },
+      }}
+    >
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Tab One',
-          header: ()=> <HomeHeader/>,
-          tabBarIcon: ({ color }) => (
-            <SymbolView
-              name={{
-                ios: 'house.fill',
-                android: 'home',
-                web: 'home',
-              }}
-              tintColor={color}
-              size={28}
+          title: 'Ana Sayfa',
+          header: () => <HomeHeader />,
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? 'home' : 'home-outline'}
+              size={22}
+              color={color}
             />
-          ),
-          headerRight: () => (
-            <Link href="/modal" asChild>
-              <Pressable style={{ marginRight: 15 }}>
-                {({ pressed }) => (
-                  <SymbolView
-                    name={{ ios: 'info.circle', android: 'info', web: 'info' }}
-                    size={25}
-                    tintColor={Colors[colorScheme].text}
-                    style={{ opacity: pressed ? 0.5 : 1 }}
-                  />
-                )}
-              </Pressable>
-            </Link>
           ),
         }}
       />
       <Tabs.Screen
         name="recipes"
         options={{
-          title: 'Tab Recipes',
+          title: 'Tarifler',
           headerShown: false,
-          tabBarIcon: ({ color }) => (
-            <SymbolView
-              name={{
-                ios: 'book.pages.fill',
-                android: 'chef_hat',
-                web: 'chef_hat',
-              }}
-              tintColor={color}
-              size={28}
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? 'book' : 'book-outline'}
+              size={22}
+              color={color}
             />
           ),
         }}
@@ -75,35 +73,49 @@ export default function TabLayout() {
       <Tabs.Screen
         name="scanner"
         options={{
+          title: 'AI Tara',
           headerShown: false,
-          title: 'Tab Scanner',
-          tabBarIcon: ({ color }) => (
-            <SymbolView
-              name={{
-                ios: 'camera.fill',
-                android: 'photo_camera',
-                web: 'photo_camera',
-              }}
-              tintColor={color}
-              size={28}
-            />
+          tabBarIcon: ({ focused }) => (
+            <View style={{ alignItems: 'center', justifyContent: 'center', marginTop: -22 }}>
+              <View
+                style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: 24,
+                  backgroundColor: colors.primary,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  shadowColor: colors.primary,
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.4,
+                  shadowRadius: 8,
+                  elevation: 8,
+                  borderWidth: 2,
+                  borderColor: colors.tabBarBg,
+                }}
+              >
+                <Ionicons name="sparkles" size={22} color="#FFFFFF" />
+              </View>
+            </View>
           ),
+          tabBarLabelStyle: {
+            fontSize: 10,
+            fontWeight: '800',
+            marginTop: 2,
+            color: colors.primary,
+          },
         }}
       />
       <Tabs.Screen
         name="shopping"
         options={{
-          title: 'Tab Shopping',
+          title: 'Eksikler',
           headerShown: false,
-          tabBarIcon: ({ color }) => (
-            <SymbolView
-              name={{
-                ios: 'basket.fill',
-                android: 'shopping_basket',
-                web: 'shopping_basket',
-              }}
-              tintColor={color}
-              size={28}
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? 'basket' : 'basket-outline'}
+              size={22}
+              color={color}
             />
           ),
         }}
@@ -111,17 +123,13 @@ export default function TabLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Tab Profile',
+          title: 'Profil',
           headerShown: false,
-          tabBarIcon: ({ color }) => (
-            <SymbolView
-              name={{
-                ios: 'person.fill',
-                android: 'person',
-                web: 'person',
-              }}
-              tintColor={color}
-              size={28}
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? 'person' : 'person-outline'}
+              size={22}
+              color={color}
             />
           ),
         }}

@@ -20,6 +20,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from "@expo/vector-icons";
 import LottieView from "lottie-react-native";
 import RecipeCard, { type RecipeMeal } from "@/components/RecipeCard";
+import { Alert } from "react-native";
+import { useRouter } from "expo-router";
+import { useRecipeFlow, transformMealDBDetail } from "@/hooks/useRecipeFlow";
+import { addRecentMealId } from "@/utils/recentMealsStorage";
+import { useTheme } from "@/contexts/ThemeContext";
 
 // ─────────────── Tipler ───────────────
 type AppMode = "explore" | "search" | "filter";
@@ -350,15 +355,44 @@ export default function TabRecipesScreen() {
     a.strArea.toLowerCase().includes(areaSearchQuery.toLowerCase()),
   );
 
+  const router = useRouter();
+  const { setMealDbRecipe, setSelectedRecipe } = useRecipeFlow();
+  const { colors } = useTheme();
+
+  // Recipe click handler (Lookup detail API call)
+  const handleRecipePress = useCallback(async (meal: RecipeMeal) => {
+    try {
+      setLoadingMessage("Tarif detayları yükleniyor...");
+      setLoading(true);
+      const res = await fetch(`${API_BASE}/lookup.php?i=${meal.idMeal}`);
+      const data = await res.json();
+      if (data.meals && data.meals.length > 0) {
+        const fullMeal = data.meals[0];
+        const detail = transformMealDBDetail(fullMeal);
+        await addRecentMealId(meal.idMeal);
+        setSelectedRecipe(null);
+        setMealDbRecipe(detail);
+        router.push('/scanner/recipe-cooking');
+      } else {
+        Alert.alert('Hata', 'Tarif detayları bulunamadı.');
+      }
+    } catch (err: any) {
+      console.error('Lookup error:', err);
+      Alert.alert('Hata', 'Tarif yüklenirken bir sorun oluştu.');
+    } finally {
+      setLoading(false);
+    }
+  }, [router, setMealDbRecipe, setSelectedRecipe]);
+
   // ─────────────── Render Helpers ───────────────
 
   const renderMealItem = useCallback(({ item }: { item: RecipeMeal }) => {
     return (
       <View style={{ paddingHorizontal: 6 }}>
-        <RecipeCard meal={item} />
+        <RecipeCard meal={item} onPress={handleRecipePress} />
       </View>
     );
-  }, []);
+  }, [handleRecipePress]);
 
   // ─────────────── MEMOIZED HEADER ───────────────
   // useMemo ile header'ı memoize ediyoruz ki her state değişikliğinde
@@ -374,26 +408,26 @@ export default function TabRecipesScreen() {
             style={{
               flexDirection: "row",
               alignItems: "center",
-              backgroundColor: "rgba(30, 41, 59, 0.9)",
+              backgroundColor: colors.searchBg,
               borderRadius: 16,
               paddingHorizontal: 16,
               height: 48,
               borderWidth: 1,
-              borderColor: "rgba(71, 85, 105, 0.5)",
+              borderColor: colors.cardBorder,
             }}
           >
-            <Ionicons name="search-outline" size={20} color="#94A3B8" />
+            <Ionicons name="search-outline" size={20} color={colors.textMuted} />
             <TextInput
               value={searchQuery}
               onChangeText={handleSearchChange}
               placeholder="Tarif ara..."
-              placeholderTextColor="#64748B"
+              placeholderTextColor={colors.textMuted}
               style={
                 {
                   flex: 1,
                   marginLeft: 10,
                   fontSize: 15,
-                  color: "#F1F5F9",
+                  color: colors.textPrimary,
                   fontWeight: "500",
                   outlineStyle: "none",
                 } as any
@@ -402,7 +436,7 @@ export default function TabRecipesScreen() {
             />
             {searchQuery.length > 0 && (
               <TouchableOpacity onPress={() => handleSearchChange("")}>
-                <Ionicons name="close-circle" size={20} color="#64748B" />
+                <Ionicons name="close-circle" size={20} color={colors.textMuted} />
               </TouchableOpacity>
             )}
           </View>
@@ -423,7 +457,7 @@ export default function TabRecipesScreen() {
                 backgroundColor:
                   selectedCategory === null && mode === "explore"
                     ? "#FF6B35"
-                    : "rgba(51, 65, 85, 0.8)",
+                    : colors.tagBg,
                 paddingHorizontal: 16,
                 paddingVertical: 8,
                 borderRadius: 20,
@@ -431,7 +465,7 @@ export default function TabRecipesScreen() {
                 borderColor:
                   selectedCategory === null && mode === "explore"
                     ? "#FF6B35"
-                    : "rgba(71, 85, 105, 0.5)",
+                    : colors.cardBorder,
               }}
             >
               <Text
@@ -441,7 +475,7 @@ export default function TabRecipesScreen() {
                   color:
                     selectedCategory === null && mode === "explore"
                       ? "#FFFFFF"
-                      : "#CBD5E1",
+                      : colors.textPrimary,
                 }}
               >
                 🍽️ Tümü
@@ -456,7 +490,7 @@ export default function TabRecipesScreen() {
                   backgroundColor:
                     selectedCategory === cat.strCategory
                       ? "#FF6B35"
-                      : "rgba(51, 65, 85, 0.8)",
+                      : colors.tagBg,
                   paddingHorizontal: 16,
                   paddingVertical: 8,
                   borderRadius: 20,
@@ -464,7 +498,7 @@ export default function TabRecipesScreen() {
                   borderColor:
                     selectedCategory === cat.strCategory
                       ? "#FF6B35"
-                      : "rgba(71, 85, 105, 0.5)",
+                      : colors.cardBorder,
                 }}
               >
                 <Text
@@ -474,7 +508,7 @@ export default function TabRecipesScreen() {
                     color:
                       selectedCategory === cat.strCategory
                         ? "#FFFFFF"
-                        : "#CBD5E1",
+                        : colors.textPrimary,
                   }}
                 >
                   {cat.strCategory}
@@ -495,19 +529,19 @@ export default function TabRecipesScreen() {
               flexDirection: "row",
               alignItems: "center",
               justifyContent: "space-between",
-              backgroundColor: "rgba(30, 41, 59, 0.6)",
+              backgroundColor: colors.searchBg,
               borderRadius: 12,
               paddingHorizontal: 16,
               height: 42,
               borderWidth: 1,
-              borderColor: "rgba(71, 85, 105, 0.4)",
+              borderColor: colors.cardBorder,
             }}
           >
             <View style={{ flexDirection: "row", alignItems: "center" }}>
-              <Ionicons name="globe-outline" size={18} color="#94A3B8" />
+              <Ionicons name="globe-outline" size={18} color={colors.textMuted} />
               <Text
                 style={{
-                  color: selectedArea ? "#FF6B35" : "#94A3B8",
+                  color: selectedArea ? "#FF6B35" : colors.textMuted,
                   fontSize: 13,
                   fontWeight: "600",
                   marginLeft: 8,
@@ -526,10 +560,10 @@ export default function TabRecipesScreen() {
                   onPress={() => handleAreaSelect(null)}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
-                  <Ionicons name="close-circle" size={18} color="#64748B" />
+                  <Ionicons name="close-circle" size={18} color={colors.textMuted} />
                 </TouchableOpacity>
               )}
-              <Ionicons name="chevron-down" size={16} color="#64748B" />
+              <Ionicons name="chevron-down" size={16} color={colors.textMuted} />
             </View>
           </TouchableOpacity>
         </View>
@@ -559,7 +593,7 @@ export default function TabRecipesScreen() {
                 }}
               >
                 <Text
-                  style={{ fontSize: 11, fontWeight: "700", color: "#FB923C" }}
+                  style={{ fontSize: 11, fontWeight: "700", color: "#FF6B35" }}
                 >
                   {mode === "search"
                     ? `"${searchQuery}" için sonuçlar`
@@ -571,7 +605,7 @@ export default function TabRecipesScreen() {
                 </Text>
               </View>
               <Text
-                style={{ fontSize: 11, color: "#64748B", fontWeight: "600" }}
+                style={{ fontSize: 11, color: colors.textMuted, fontWeight: "600" }}
               >
                 {meals.length} tarif
               </Text>
@@ -594,6 +628,7 @@ export default function TabRecipesScreen() {
       mode,
       categories,
       meals.length,
+      colors,
     ],
   );
 
@@ -683,13 +718,13 @@ export default function TabRecipesScreen() {
       <View
         style={{
           flex: 1,
-          backgroundColor: "rgba(0,0,0,0.6)",
+          backgroundColor: colors.overlay,
           justifyContent: "flex-end",
         }}
       >
         <View
           style={{
-            backgroundColor: "#1E293B",
+            backgroundColor: colors.card,
             borderTopLeftRadius: 24,
             borderTopRightRadius: 24,
             maxHeight: "70%",
@@ -821,8 +856,8 @@ export default function TabRecipesScreen() {
 
   // ─────────────── Ana Render ───────────────
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#0F172A" }}>
-      <StatusBar barStyle="light-content" />
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+      <StatusBar barStyle={colors.statusBar} />
 
       <FlatList
         ref={flatListRef}

@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, Text, Image, TouchableOpacity, Dimensions } from 'react-native';
+import { View, Text, Image, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '@/contexts/ThemeContext';
 
 export interface IngredientItem {
   idIngredient: string;
@@ -22,6 +23,7 @@ export default function IngredientCard({
   onToggle,
   width,
 }: IngredientCardProps) {
+  const { colors } = useTheme();
   const imageUrl = `https://www.themealdb.com/images/ingredients/${encodeURIComponent(
     ingredient.strIngredient
   )}-Small.png`;
@@ -33,21 +35,21 @@ export default function IngredientCard({
       style={{
         width: width || '31%',
         marginBottom: 10,
-        backgroundColor: isSelected ? 'rgba(255, 107, 53, 0.12)' : 'rgba(30, 41, 59, 0.7)',
+        backgroundColor: isSelected ? 'rgba(255, 107, 53, 0.12)' : colors.card,
         borderRadius: 14,
         padding: 8,
         alignItems: 'center',
         borderWidth: 1,
-        borderColor: isSelected ? '#FF6B35' : 'rgba(71, 85, 105, 0.3)',
+        borderColor: isSelected ? colors.primary : colors.cardBorder,
         position: 'relative',
       }}
     >
       {/* Sol Üst Köşe İkonu */}
       <View style={{ position: 'absolute', top: 6, left: 6, zIndex: 2 }}>
         {isSelected ? (
-          <Ionicons name="checkmark-circle" size={18} color="#FF6B35" />
+          <Ionicons name="checkmark-circle" size={18} color={colors.primary} />
         ) : (
-          <Ionicons name="ellipse-outline" size={18} color="#64748B" />
+          <Ionicons name="ellipse-outline" size={18} color={colors.iconDefault} />
         )}
       </View>
 
@@ -64,7 +66,7 @@ export default function IngredientCard({
       <Text
         numberOfLines={2}
         style={{
-          color: isSelected ? '#FF6B35' : '#F1F5F9',
+          color: isSelected ? colors.primary : colors.textPrimary,
           fontSize: 11,
           fontWeight: isSelected ? '700' : '600',
           textAlign: 'center',

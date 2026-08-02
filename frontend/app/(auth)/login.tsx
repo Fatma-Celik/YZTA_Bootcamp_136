@@ -1,17 +1,19 @@
 import { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StatusBar,
-  KeyboardAvoidingView, Platform, ActivityIndicator, Alert, Image,
+  KeyboardAvoidingView, Platform, ActivityIndicator, Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Link } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useAlert } from '@/contexts/AlertContext';
 import { isValidEmail } from '@/utils/validation';
 
 export default function LoginScreen() {
   const { signIn, signInWithGoogle } = useAuth();
   const { colors, isDark } = useTheme();
+  const { showAlert } = useAlert();
   const [googleLoading, setGoogleLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -19,24 +21,24 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert('Eksik bilgi', 'Lütfen e-posta ve şifreni gir.');
+      showAlert({ title: 'Eksik Bilgi', message: 'Lütfen e-posta ve şifreni gir.', type: 'warning' });
       return;
     }
     if (!isValidEmail(email)) {
-      Alert.alert('Geçersiz e-posta', 'Lütfen geçerli bir e-posta adresi gir.');
+      showAlert({ title: 'Geçersiz E-posta', message: 'Lütfen geçerli bir e-posta adresi gir.', type: 'warning' });
       return;
     }
     setLoading(true);
     const { error } = await signIn(email.trim(), password);
     setLoading(false);
-    if (error) Alert.alert('Giriş başarısız', error);
+    if (error) showAlert({ title: 'Giriş Başarısız', message: error, type: 'error' });
   };
 
   const handleGoogleLogin = async () => {
     setGoogleLoading(true);
     const { error } = await signInWithGoogle();
     setGoogleLoading(false);
-    if (error) Alert.alert('Google girişi başarısız', error);
+    if (error) showAlert({ title: 'Google Girişi Başarısız', message: error, type: 'error' });
   };
 
   return (

@@ -1,16 +1,18 @@
 import { useFonts } from 'expo-font';
+import { View } from 'react-native';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import 'react-native-reanimated';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { RecipeFlowProvider } from '@/hooks/useRecipeFlow';
 import '../global.css'
 import AnimatedLoadingScreen from '@/components/AnimatedLoadingScreen';
-import { ThemeProvider as AppThemeProvider } from '@/contexts/ThemeContext';
-import { useColorScheme } from '@/components/useColorScheme';
+import { ThemeProvider as AppThemeProvider, useTheme } from '@/contexts/ThemeContext';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { NotificationProvider } from '@/contexts/NotificationContext';
+import { AlertProvider } from '@/contexts/AlertContext';
 
 export {
   ErrorBoundary,
@@ -33,7 +35,7 @@ export default function RootLayout() {
 
   useEffect(() => {
     if (loaded) {
-      SplashScreen.hideAsync();
+      SplashScreen.hideAsync().catch(() => {});
     }
   }, [loaded]);
 
@@ -44,30 +46,52 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <AuthProvider>
-        <AppThemeProvider>
-          <RootLayoutNav />
-        </AppThemeProvider>
+        <AlertProvider>
+          <NotificationProvider>
+            <AppThemeProvider>
+              <RootLayoutNav />
+            </AppThemeProvider>
+          </NotificationProvider>
+        </AlertProvider>
       </AuthProvider>
     </GestureHandlerRootView>
   );
 }
 
 function RootLayoutNav() {
-  const colorScheme = useColorScheme();
+  const { isDark, colors } = useTheme();
   const { session, loading } = useAuth();
   const segments = useSegments();
   const router = useRouter();
 
+  // React Navigation temasını uygulamanın aktif temasıyla eşitle
+  const navigationTheme = useMemo(() => ({
+    ...(isDark ? DarkTheme : DefaultTheme),
+    colors: {
+      ...(isDark ? DarkTheme.colors : DefaultTheme.colors),
+      background: colors.background,
+      card: colors.card,
+      border: colors.cardBorder,
+      text: colors.textPrimary,
+      primary: colors.primary,
+      notification: colors.primary,
+    },
+  }), [isDark, colors]);
+
   useEffect(() => {
     if (loading) return;
 
-    const inAuthGroup = segments[0] === '(auth)';
+    const timer = setTimeout(() => {
+      const inAuthGroup = segments[0] === '(auth)';
 
-    if (!session && !inAuthGroup) {
-      router.replace('/(auth)/login');
-    } else if (session && inAuthGroup) {
-      router.replace('/(tabs)');
-    }
+      if (!session && !inAuthGroup) {
+        router.replace('/(auth)/login');
+      } else if (session && inAuthGroup) {
+        router.replace('/(tabs)');
+      }
+    }, 10);
+
+    return () => clearTimeout(timer);
   }, [session, loading, segments]);
 
   if (loading) {
@@ -76,16 +100,24 @@ function RootLayoutNav() {
 
   return (
     <RecipeFlowProvider>
-      <SafeAreaProvider>
-        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-          <Stack>
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
-            <Stack.Screen name="profile" options={{ headerShown: false }} />
-            <Stack.Screen name="scanner" options={{ headerShown: false }} />
-            <Stack.Screen name="fridge" options={{ headerShown: false }} />
-            <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-          </Stack>
+      <SafeAreaProvider style={{ flex: 1, backgroundColor: colors.background }}>
+        <ThemeProvider value={navigationTheme}>
+          <View style={{ flex: 1, backgroundColor: colors.background }}>
+            <Stack
+              screenOptions={{
+                headerShown: false,
+                contentStyle: { backgroundColor: colors.background },
+                animation: 'slide_from_right',
+              }}
+            >
+              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+              <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
+              <Stack.Screen name="profile" options={{ headerShown: false }} />
+              <Stack.Screen name="scanner" options={{ headerShown: false }} />
+              <Stack.Screen name="fridge" options={{ headerShown: false }} />
+              <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+            </Stack>
+          </View>
         </ThemeProvider>
       </SafeAreaProvider>
     </RecipeFlowProvider>

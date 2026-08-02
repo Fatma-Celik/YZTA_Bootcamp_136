@@ -18,7 +18,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import LottieView from 'lottie-react-native';
 import { useRecipeFlow } from '@/hooks/useRecipeFlow';
+import { useAuth } from '@/contexts/AuthContext';
+import { useAllergens } from '@/hooks/useAllergens';
 import { BASE_URL, ENDPOINTS } from '@/constants/ApiConfig';
+import { useTheme } from '@/contexts/ThemeContext';
 
 // ─────────── Dropdown Seçenekleri ───────────
 const DIYET_OPTIONS = ['normal', 'vejetaryen', 'vegan', 'glutensiz', 'ketojenik'] as const;
@@ -432,6 +435,9 @@ function DropdownRow({
 export default function RecipeDetailsScreen() {
   const router = useRouter();
   const { ingredients, setRecipeResponse } = useRecipeFlow();
+  const { colors } = useTheme();
+  const { user } = useAuth();
+  const { allergens } = useAllergens();
 
   // Form state
   const [kisiSayisi, setKisiSayisi] = useState('3');
@@ -502,6 +508,8 @@ export default function RecipeDetailsScreen() {
       diyet,
       hedef,
       ogun,
+      alerjenler: allergens ? allergens.map((a) => a.allergen_name) : [],
+      kullanici_id: user?.id || 'test_user_vision',
     };
 
     setIsSubmitting(true);
@@ -545,8 +553,8 @@ export default function RecipeDetailsScreen() {
   // ─────── Loading / Cooking Animation Screen ───────
   if (isSubmitting) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#0F172A' }}>
-        <StatusBar barStyle="light-content" />
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+        <StatusBar barStyle={colors.statusBar} />
         <View
           style={{
             flex: 1,
@@ -608,8 +616,8 @@ export default function RecipeDetailsScreen() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#0F172A' }} edges={['bottom']}>
-      <StatusBar barStyle="light-content" />
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['bottom']}>
+      <StatusBar barStyle={colors.statusBar} />
 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}

@@ -66,3 +66,4 @@ xcode_backend.sh
 expo-env.d.ts
 # @end expo-cli
 .env
+.expo/

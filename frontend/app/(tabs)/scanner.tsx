@@ -18,6 +18,8 @@ import LottieView from 'lottie-react-native';
 import { useImagePicker, ImagePickerResult } from "@/hooks/useImagePicker";
 import { useRecipeFlow } from "@/hooks/useRecipeFlow";
 import { BASE_URL, ENDPOINTS } from "@/constants/ApiConfig";
+import { useAlert } from "@/contexts/AlertContext";
+import { useTheme } from "@/contexts/ThemeContext";
 
 // ─────────── Öğün Seçenekleri ───────────
 const MEAL_OPTIONS = [
@@ -32,6 +34,8 @@ type MealKey = (typeof MEAL_OPTIONS)[number]['key'];
 export default function TabScannerScreen() {
   const { pickImage, loading } = useImagePicker();
   const { setMacroResponse } = useRecipeFlow();
+  const { showAlert } = useAlert();
+  const { colors } = useTheme();
   const [selectedImage, setSelectedImage] = useState<ImagePickerResult | null>(null);
   const [currentAction, setCurrentAction] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -68,7 +72,7 @@ export default function TabScannerScreen() {
   const handleAction = async (actionType: string, source: 'camera' | 'gallery') => {
     setCurrentAction(actionType);
     const result = await pickImage(source);
-    if (result && result.uri) {
+    if (result) {
       setSelectedImage(result);
       // Macro seçim durumunu sıfırla
       if (actionType === 'MACRO_CALC') {
@@ -80,16 +84,15 @@ export default function TabScannerScreen() {
   };
 
   const promptImageSource = (actionType: string) => {
-    Alert.alert(
-      "Görüntü Kaynağı",
-      "Lütfen bir seçenek belirleyin:",
-      [
-        { text: "İptal", style: "cancel" },
-        { text: "Kamera", onPress: () => handleAction(actionType, 'camera') },
-        { text: "Galeri", onPress: () => handleAction(actionType, 'gallery') },
-      ],
-      { cancelable: true }
-    );
+    showAlert({
+      title: "Görüntü Kaynağı",
+      message: "Lütfen bir seçenek belirleyin:",
+      type: "confirm",
+      confirmText: "Kamera",
+      cancelText: "Galeri",
+      onConfirm: () => handleAction(actionType, 'camera'),
+      onCancel: () => handleAction(actionType, 'gallery'),
+    });
   };
 
   const confirmImage = async () => {
@@ -121,7 +124,7 @@ export default function TabScannerScreen() {
 
         if (!response.ok) {
           console.error('[AI_RECIPE] API hatası, status:', response.status, data);
-          Alert.alert('API Hatası', `Sunucu hatası: ${response.status}`);
+          showAlert({ title: 'API Hatası', message: `Sunucu hatası: ${response.status}`, type: 'error' });
           setIsAnalyzing(false);
           setCurrentAction(null);
           return;
@@ -138,13 +141,13 @@ export default function TabScannerScreen() {
         });
       } catch (error) {
         console.error('[AI_RECIPE] Fetch hatası:', error);
-        Alert.alert('Bağlantı Hatası', 'Sunucuya ulaşılamadı. İnternet bağlantınızı kontrol edin.');
+        showAlert({ title: 'Bağlantı Hatası', message: 'Sunucuya ulaşılamadı. İnternet bağlantınızı kontrol edin.', type: 'error' });
         setIsAnalyzing(false);
         setCurrentAction(null);
       }
     } else if (currentAction === 'MACRO_CALC') {
       if (!selectedMeal) {
-        Alert.alert('Öğün Seçin', 'Lütfen devam etmeden önce bir öğün seçin.');
+        showAlert({ title: 'Öğün Seçin', message: 'Lütfen devam etmeden önce bir öğün seçin.', type: 'warning' });
         return;
       }
 
@@ -171,7 +174,7 @@ export default function TabScannerScreen() {
 
         if (!response.ok) {
           console.error('[MACRO_CALC] API hatası, status:', response.status, data);
-          Alert.alert('API Hatası', `Sunucu hatası: ${response.status}`);
+          showAlert({ title: 'API Hatası', message: `Sunucu hatası: ${response.status}`, type: 'error' });
           setIsAnalyzing(false);
           setCurrentAction(null);
           return;
@@ -183,7 +186,7 @@ export default function TabScannerScreen() {
         router.push('/scanner/macro-results');
       } catch (error) {
         console.error('[MACRO_CALC] Fetch hatası:', error);
-        Alert.alert('Bağlantı Hatası', 'Sunucuya ulaşılamadı. İnternet bağlantınızı kontrol edin.');
+        showAlert({ title: 'Bağlantı Hatası', message: 'Sunucuya ulaşılamadı. İnternet bağlantınızı kontrol edin.', type: 'error' });
         setIsAnalyzing(false);
         setCurrentAction(null);
       }
@@ -210,8 +213,8 @@ export default function TabScannerScreen() {
   if (isAnalyzing) {
     const isMacro = currentAction === 'MACRO_CALC';
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: "#0F172A" }}>
-        <StatusBar barStyle="light-content" />
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+        <StatusBar barStyle={colors.statusBar} />
         <View
           style={{
             flex: 1,
@@ -287,8 +290,8 @@ export default function TabScannerScreen() {
 
   // ─────── Main Scanner Screen ───────
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#0F172A" }}>
-      <StatusBar barStyle="light-content" />
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+      <StatusBar barStyle={colors.statusBar} />
 
       <View
         style={{
@@ -308,13 +311,13 @@ export default function TabScannerScreen() {
             width: "100%",
             flexDirection: "row",
             alignItems: "center",
-            backgroundColor: "rgba(30, 41, 59, 1)",
+            backgroundColor: colors.card,
             borderRadius: 20,
             paddingVertical: 22,
             paddingHorizontal: 20,
             borderWidth: 1,
-            borderColor: "rgba(255, 107, 53, 0.25)",
-            shadowColor: "#FF6B35",
+            borderColor: colors.cardBorder,
+            shadowColor: colors.primary,
             shadowOffset: { width: 0, height: 4 },
             shadowOpacity: 0.15,
             shadowRadius: 12,
@@ -339,7 +342,7 @@ export default function TabScannerScreen() {
           <View style={{ flex: 1 }}>
             <Text
               style={{
-                color: "#F1F5F9",
+                color: colors.textPrimary,
                 fontSize: 17,
                 fontWeight: "800",
                 letterSpacing: -0.3,
@@ -350,7 +353,7 @@ export default function TabScannerScreen() {
             </Text>
             <Text
               style={{
-                color: "#94A3B8",
+                color: colors.textSecondary,
                 fontSize: 12,
                 fontWeight: "500",
                 lineHeight: 17,
@@ -361,7 +364,7 @@ export default function TabScannerScreen() {
           </View>
 
           {/* Sağ Ok */}
-          <Ionicons name="chevron-forward" size={20} color="#475569" />
+          <Ionicons name="chevron-forward" size={20} color={colors.iconDefault} />
         </TouchableOpacity>
 
         {/* Macro Hesaplama Butonu */}
@@ -373,12 +376,12 @@ export default function TabScannerScreen() {
             width: "100%",
             flexDirection: "row",
             alignItems: "center",
-            backgroundColor: "rgba(30, 41, 59, 1)",
+            backgroundColor: colors.card,
             borderRadius: 20,
             paddingVertical: 22,
             paddingHorizontal: 20,
             borderWidth: 1,
-            borderColor: "rgba(16, 185, 129, 0.25)",
+            borderColor: colors.cardBorder,
             shadowColor: "#10B981",
             shadowOffset: { width: 0, height: 4 },
             shadowOpacity: 0.15,
@@ -405,7 +408,7 @@ export default function TabScannerScreen() {
           <View style={{ flex: 1 }}>
             <Text
               style={{
-                color: "#F1F5F9",
+                color: colors.textPrimary,
                 fontSize: 17,
                 fontWeight: "800",
                 letterSpacing: -0.3,
@@ -416,7 +419,7 @@ export default function TabScannerScreen() {
             </Text>
             <Text
               style={{
-                color: "#94A3B8",
+                color: colors.textSecondary,
                 fontSize: 12,
                 fontWeight: "500",
                 lineHeight: 17,
@@ -427,7 +430,7 @@ export default function TabScannerScreen() {
           </View>
 
           {/* Sağ Ok */}
-          <Ionicons name="chevron-forward" size={20} color="#475569" />
+          <Ionicons name="chevron-forward" size={20} color={colors.iconDefault} />
         </TouchableOpacity>
       </View>
 
@@ -438,7 +441,7 @@ export default function TabScannerScreen() {
         animationType="slide"
         onRequestClose={closeModal}
       >
-        <View style={{ flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.95)' }}>
+        <View style={{ flex: 1, backgroundColor: colors.overlay }}>
           <ScrollView
             contentContainerStyle={{
               flexGrow: 1,

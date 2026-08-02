@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, Image, Dimensions } from 'react-native';
+import { View, Text, Image, Dimensions, TouchableOpacity } from 'react-native';
+import { useTheme } from '@/contexts/ThemeContext';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_WIDTH = (SCREEN_WIDTH - 48) / 2; // 2 sütun, kenar + ara boşluk
@@ -20,6 +21,7 @@ export interface RecipeMeal {
 
 interface RecipeCardProps {
   meal: RecipeMeal | null;
+  onPress?: (meal: RecipeMeal) => void;
 }
 
 // Kategori renklerini belirleyen yardımcı fonksiyon
@@ -56,27 +58,34 @@ function getTopIngredients(meal: RecipeMeal): string[] {
   return ingredients;
 }
 
-export default function RecipeCard({ meal }: RecipeCardProps) {
+export default function RecipeCard({ meal, onPress }: RecipeCardProps) {
+  const { colors } = useTheme();
+
   // Skeleton loading durumu
   if (!meal) {
     return (
       <View
-        style={{ width: CARD_WIDTH, marginBottom: 16 }}
-        className="bg-slate-800/60 rounded-2xl overflow-hidden border border-slate-700/50"
+        style={{
+          width: CARD_WIDTH,
+          marginBottom: 16,
+          backgroundColor: colors.card,
+          borderRadius: 16,
+          overflow: 'hidden',
+          borderWidth: 1,
+          borderColor: colors.cardBorder,
+        }}
       >
         {/* Resim Skeleton */}
         <View
-          style={{ width: CARD_WIDTH, height: CARD_WIDTH * 0.85 }}
-          className="bg-slate-700/50"
+          style={{ width: CARD_WIDTH, height: CARD_WIDTH * 0.85, backgroundColor: colors.divider }}
         />
         {/* Bilgi Skeleton */}
-        <View className="p-3 space-y-2">
-          <View className="h-4 w-3/4 bg-slate-700/50 rounded-full" />
-          <View className="h-3 w-1/2 bg-slate-700/50 rounded-full" />
-          <View className="flex-row mt-1" style={{ gap: 4 }}>
-            <View className="h-5 w-14 bg-slate-700/50 rounded-full" />
-            <View className="h-5 w-12 bg-slate-700/50 rounded-full" />
-            <View className="h-5 w-16 bg-slate-700/50 rounded-full" />
+        <View style={{ padding: 12, gap: 8 }}>
+          <View style={{ height: 16, width: '75%', backgroundColor: colors.divider, borderRadius: 8 }} />
+          <View style={{ height: 12, width: '50%', backgroundColor: colors.divider, borderRadius: 6 }} />
+          <View style={{ flexDirection: 'row', gap: 4, marginTop: 4 }}>
+            <View style={{ height: 20, width: 56, backgroundColor: colors.divider, borderRadius: 6 }} />
+            <View style={{ height: 20, width: 48, backgroundColor: colors.divider, borderRadius: 6 }} />
           </View>
         </View>
       </View>
@@ -87,9 +96,23 @@ export default function RecipeCard({ meal }: RecipeCardProps) {
   const ingredients = getTopIngredients(meal);
 
   return (
-    <View
-      style={{ width: CARD_WIDTH, marginBottom: 16 }}
-      className="bg-slate-800/80 rounded-2xl overflow-hidden border border-slate-700/40 shadow-lg"
+    <TouchableOpacity
+      activeOpacity={0.88}
+      onPress={() => onPress && onPress(meal)}
+      style={{
+        width: CARD_WIDTH,
+        marginBottom: 16,
+        backgroundColor: colors.card,
+        borderRadius: 16,
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: colors.cardBorder,
+        shadowColor: colors.cardBorder,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+        elevation: 4,
+      }}
     >
       {/* Üst Kısım: Yemek Görseli */}
       <View style={{ width: CARD_WIDTH, height: CARD_WIDTH * 0.85, position: 'relative' }}>
@@ -127,19 +150,19 @@ export default function RecipeCard({ meal }: RecipeCardProps) {
       </View>
 
       {/* Alt Kısım: Yemek Bilgileri */}
-      <View className="p-3">
+      <View style={{ padding: 12 }}>
         {/* Yemek Adı */}
         <Text
           numberOfLines={2}
-          style={{ fontSize: 13, fontWeight: '800', color: '#F1F5F9', lineHeight: 18, letterSpacing: -0.2 }}
+          style={{ fontSize: 13, fontWeight: '800', color: colors.textPrimary, lineHeight: 18, letterSpacing: -0.2 }}
         >
           {meal.strMeal}
         </Text>
 
         {/* Ülke/Alan Bilgisi */}
         {meal.strArea ? (
-          <View className="flex-row items-center mt-1.5">
-            <Text style={{ fontSize: 11, color: '#94A3B8', fontWeight: '600' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6 }}>
+            <Text style={{ fontSize: 11, color: colors.textSecondary, fontWeight: '600' }}>
               🌍 {meal.strArea}
             </Text>
           </View>
@@ -147,7 +170,7 @@ export default function RecipeCard({ meal }: RecipeCardProps) {
 
         {/* İlk 3 Ingredient Pill'leri */}
         {ingredients.length > 0 ? (
-          <View className="flex-row flex-wrap mt-2" style={{ gap: 4 }}>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 8, gap: 4 }}>
             {ingredients.map((ing, idx) => (
               <View
                 key={idx}
@@ -160,7 +183,7 @@ export default function RecipeCard({ meal }: RecipeCardProps) {
                   borderColor: 'rgba(255, 107, 53, 0.25)',
                 }}
               >
-                <Text style={{ fontSize: 9, color: '#FB923C', fontWeight: '700' }}>
+                <Text style={{ fontSize: 9, color: colors.primary, fontWeight: '700' }}>
                   {ing}
                 </Text>
               </View>
@@ -168,6 +191,6 @@ export default function RecipeCard({ meal }: RecipeCardProps) {
           </View>
         ) : null}
       </View>
-    </View>
+    </TouchableOpacity>
   );
 }

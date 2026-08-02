@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
-import { Alert } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import { useAlert } from '@/contexts/AlertContext';
 
 export interface ImagePickerResult {
   base64: string | null;
@@ -9,15 +9,16 @@ export interface ImagePickerResult {
 
 export function useImagePicker() {
   const [loading, setLoading] = useState(false);
+  const { showAlert } = useAlert();
 
   const requestCameraPermission = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert(
-        'İzin Gerekli',
-        'Kamerayı kullanabilmek için kamera iznine ihtiyacımız var.',
-        [{ text: 'Tamam' }]
-      );
+      showAlert({
+        title: 'İzin Gerekli',
+        message: 'Kamerayı kullanabilmek için kamera iznine ihtiyacımız var.',
+        type: 'warning',
+      });
       return false;
     }
     return true;
@@ -26,11 +27,11 @@ export function useImagePicker() {
   const requestGalleryPermission = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert(
-        'İzin Gerekli',
-        'Galeriye erişebilmek için fotoğraf galerisi iznine ihtiyacımız var.',
-        [{ text: 'Tamam' }]
-      );
+      showAlert({
+        title: 'İzin Gerekli',
+        message: 'Galeriye erişebilmek için fotoğraf galerisi iznine ihtiyacımız var.',
+        type: 'warning',
+      });
       return false;
     }
     return true;
@@ -77,12 +78,16 @@ export function useImagePicker() {
       return null;
     } catch (error) {
       console.error('Image picking error:', error);
-      Alert.alert('Hata', 'Fotoğraf işlemi sırasında bir hata oluştu.');
+      showAlert({
+        title: 'Hata',
+        message: 'Fotoğraf işlemi sırasında bir hata oluştu.',
+        type: 'error',
+      });
       return null;
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [showAlert]);
 
   return { pickImage, loading };
 }

@@ -10,14 +10,20 @@ import {
   BackHandler,
   ActivityIndicator,
   Animated as RNAnimated,
+  Linking,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useRecipeFlow } from '@/hooks/useRecipeFlow';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAlert } from '@/contexts/AlertContext';
 import { BASE_URL, ENDPOINTS } from '@/constants/ApiConfig';
 import ToastNotification from '@/components/ToastNotification';
+import { useTheme } from '@/contexts/ThemeContext';
+import { incrementRecipeStatCount } from '@/hooks/useProfileStats';
+import { supabase } from '@/lib/supabase';
 
 // ─────────── Besin Değeri Progress Bar ───────────
 function NutritionBar({
@@ -182,8 +188,10 @@ function IngredientCollapsible({
 // ─────────── Ana Ekran ───────────
 export default function RecipeCookingScreen() {
   const router = useRouter();
-  const { selectedRecipe, favoriteId, setFavoriteId } = useRecipeFlow();
+  const { selectedRecipe, mealDbRecipe, favoriteId, setFavoriteId } = useRecipeFlow();
   const { user } = useAuth();
+  const { showAlert } = useAlert();
+  const { colors } = useTheme();
 
   // Pişirme modu state'leri
   const [isCookingActive, setIsCookingActive] = useState(false);
@@ -199,8 +207,76 @@ export default function RecipeCookingScreen() {
   const heartScale = useRef(new RNAnimated.Value(1)).current;
 
   const isFavorited = favoriteId !== null;
+  const timerRef = useRef<any>(null);
 
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  // Active recipe normalized variables
+  const activeRecipe = selectedRecipe || mealDbRecipe;
+  const recipeTitle = selectedRecipe?.tarif_adi || mealDbRecipe?.strMeal || '';
+  const categoryName = selectedRecipe?.kategori || mealDbRecipe?.strCategory || '';
+  const areaName = (selectedRecipe as any)?.strArea || mealDbRecipe?.strArea || '';
+  const heroImage = selectedRecipe
+    ? ((selectedRecipe as any).gorsel_url || (selectedRecipe as any).strMealThumb || (selectedRecipe as any).image || null)
+    : mealDbRecipe?.strMealThumb || null;
+  const youtubeUrl = selectedRecipe
+    ? ((selectedRecipe as any).strYoutube || (selectedRecipe as any).youtube_url || null)
+    : mealDbRecipe?.strYoutube || null;
+  const malzemeler = selectedRecipe?.malzemeler || mealDbRecipe?.malzemeler || [];
+  const yapilisAdimlari = selectedRecipe?.yapilis_adimlari || mealDbRecipe?.yapilis_adimlari || [];
+  const besinDegerleri = selectedRecipe?.besin_degerleri;
+
+  // Tarif açıldığında kullanıcının favorilerinde olup olmadığını kontrol et
+  useEffect(() => {
+    let isMounted = true;
+    const checkFavoriteStatus = async () => {
+      if (!user || !recipeTitle) return;
+      try {
+        let { data, error: supaErr } = await supabase
+          .from('favori_tarifler')
+          .select('*')
+          .eq('kullanici_id', user.id);
+
+        if (supaErr || !data || data.length === 0) {
+          const fallback1 = await supabase
+            .from('favori_tarifler')
+            .select('*')
+            .eq('user_id', user.id);
+
+          if (!fallback1.error && fallback1.data && fallback1.data.length > 0) {
+            data = fallback1.data;
+          } else {
+            const fallback2 = await supabase
+              .from('favorite_recipes')
+              .select('*')
+              .eq('kullanici_id', user.id);
+            if (!fallback2.error && fallback2.data && fallback2.data.length > 0) {
+              data = fallback2.data;
+            }
+          }
+        }
+
+        const favList: any[] = data || [];
+        const match = favList.find(
+          (fav) => fav.tarif_adi?.trim().toLowerCase() === recipeTitle.trim().toLowerCase()
+        );
+
+        if (isMounted) {
+          if (match) {
+            const id = match.favori_id || match.id || match._id;
+            setFavoriteId(String(id));
+          } else {
+            setFavoriteId(null);
+          }
+        }
+      } catch (err) {
+        console.error('Favori kontrol hatası:', err);
+      }
+    };
+
+    checkFavoriteStatus();
+    return () => {
+      isMounted = false;
+    };
+  }, [user, recipeTitle]);
 
   // Kronometre kontrolü
   useEffect(() => {
@@ -239,28 +315,24 @@ export default function RecipeCookingScreen() {
 
   // Çıkış Onayı
   const confirmExit = () => {
-    Alert.alert(
-      'Tariften Çıkılsın mı?',
-      'Tarif modundan çıkmak istediğinize emin misiniz? Kronometre sıfırlanacaktır.',
-      [
-        { text: 'İptal', style: 'cancel' },
-        {
-          text: 'Çık',
-          style: 'destructive',
-          onPress: () => {
-            setIsCookingActive(false);
-            setElapsedSeconds(0);
-            setCompletedSteps([]);
-            router.back();
-          },
-        },
-      ]
-    );
+    showAlert({
+      title: 'Tariften Çıkılsın mı?',
+      message: 'Tarif modundan çıkmak istediğinize emin misiniz? Kronometre sıfırlanacaktır.',
+      type: 'confirm',
+      confirmText: 'Çık',
+      cancelText: 'İptal',
+      onConfirm: () => {
+        setIsCookingActive(false);
+        setElapsedSeconds(0);
+        setCompletedSteps([]);
+        router.back();
+      },
+    });
   };
 
   // ── Favori Toggle ──
   const toggleFavorite = async () => {
-    if (!selectedRecipe || !user) return;
+    if (!activeRecipe || !user) return;
     setIsLoadingFavorite(true);
 
     try {
@@ -268,15 +340,15 @@ export default function RecipeCookingScreen() {
         // Favorilere ekle
         const body = {
           kullanici_id: user.id,
-          tarif_adi: selectedRecipe.tarif_adi,
-          kategori: selectedRecipe.kategori || '',
-          hazirlik_suresi_dk: selectedRecipe.hazirlik_suresi_dk || 0,
-          pisirme_suresi_dk: selectedRecipe.pisirme_suresi_dk || 0,
-          malzemeler: selectedRecipe.malzemeler || [],
-          yapilis_adimlari: selectedRecipe.yapilis_adimlari || [],
-          besin_degerleri: selectedRecipe.besin_degerleri || {},
-          hedef: selectedRecipe.hedef || 'normal',
-          diyet: selectedRecipe.diyet || 'normal',
+          tarif_adi: recipeTitle,
+          kategori: categoryName || '',
+          hazirlik_suresi_dk: selectedRecipe?.hazirlik_suresi_dk || 15,
+          pisirme_suresi_dk: selectedRecipe?.pisirme_suresi_dk || 30,
+          malzemeler: malzemeler || [],
+          yapilis_adimlari: yapilisAdimlari || [],
+          besin_degerleri: besinDegerleri || {},
+          hedef: selectedRecipe?.hedef || 'normal',
+          diyet: selectedRecipe?.diyet || 'normal',
         };
 
         const response = await fetch(`${BASE_URL}${ENDPOINTS.favoriEkle}`, {
@@ -286,8 +358,8 @@ export default function RecipeCookingScreen() {
         });
 
         const data = await response.json();
-        console.log("favorite data : ", data);
         setFavoriteId(String(data.favori_id));
+        await incrementRecipeStatCount();
 
         // Kalp animasyonu
         RNAnimated.sequence([
@@ -320,11 +392,11 @@ export default function RecipeCookingScreen() {
     }
   };
 
-  if (!selectedRecipe) {
+  if (!activeRecipe) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#0F172A', justifyContent: 'center', alignItems: 'center' }}>
-        <Text style={{ color: '#94A3B8', fontSize: 16 }}>Tarif bilgisi bulunamadı.</Text>
-        <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 16, backgroundColor: '#FF6B35', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 10 }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' }}>
+        <Text style={{ color: colors.textMuted, fontSize: 16 }}>Tarif bilgisi bulunamadı.</Text>
+        <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 16, backgroundColor: colors.primary, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 10 }}>
           <Text style={{ color: '#FFF', fontWeight: '700' }}>Geri Dön</Text>
         </TouchableOpacity>
       </SafeAreaView>
@@ -332,12 +404,14 @@ export default function RecipeCookingScreen() {
   }
 
   // Süre Metni
-  const sureMetni = [
-    selectedRecipe.hazirlik_suresi_dk > 0 ? `Hazırlık: ${selectedRecipe.hazirlik_suresi_dk} dk` : null,
-    selectedRecipe.pisirme_suresi_dk > 0 ? `Pişirme: ${selectedRecipe.pisirme_suresi_dk} dk` : null,
-  ]
-    .filter(Boolean)
-    .join(' • ');
+  const sureMetni = selectedRecipe
+    ? [
+        selectedRecipe.hazirlik_suresi_dk > 0 ? `Hazırlık: ${selectedRecipe.hazirlik_suresi_dk} dk` : null,
+        selectedRecipe.pisirme_suresi_dk > 0 ? `Pişirme: ${selectedRecipe.pisirme_suresi_dk} dk` : null,
+      ]
+        .filter(Boolean)
+        .join(' • ')
+    : '';
 
   // Adım tamamlandı/tamamlanmadı değiştirme
   const toggleStep = (index: number) => {
@@ -350,13 +424,13 @@ export default function RecipeCookingScreen() {
   };
 
   // İlk tamamlanmamış aktif adım indeksi
-  const firstUncompletedIndex = selectedRecipe.yapilis_adimlari.findIndex(
+  const firstUncompletedIndex = yapilisAdimlari.findIndex(
     (_, idx) => !completedSteps.includes(idx)
   );
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#0F172A' }}>
-      <StatusBar barStyle="light-content" />
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+      <StatusBar barStyle={colors.statusBar} />
 
       {/* ── Toast Notification ── */}
       <ToastNotification
@@ -555,6 +629,25 @@ export default function RecipeCookingScreen() {
         }}
         showsVerticalScrollIndicator={false}
       >
+        {/* ── MealDB Hero Resim Banner ── */}
+        {heroImage ? (
+          <View
+            style={{
+              borderRadius: 20,
+              overflow: 'hidden',
+              marginBottom: 16,
+              borderWidth: 1,
+              borderColor: 'rgba(71, 85, 105, 0.3)',
+            }}
+          >
+            <Image
+              source={{ uri: heroImage }}
+              style={{ width: '100%', height: 220 }}
+              resizeMode="cover"
+            />
+          </View>
+        ) : null}
+
         {/* ── Tarif Başlığı & Meta Detaylar ── */}
         <View
           style={{
@@ -575,7 +668,7 @@ export default function RecipeCookingScreen() {
               marginBottom: 6,
             }}
           >
-            {selectedRecipe.tarif_adi}
+            {recipeTitle}
           </Text>
 
           {sureMetni ? (
@@ -585,8 +678,8 @@ export default function RecipeCookingScreen() {
           ) : null}
 
           {/* Badges */}
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
-            {selectedRecipe.kategori ? (
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+            {categoryName ? (
               <View
                 style={{
                   backgroundColor: 'rgba(129, 140, 248, 0.15)',
@@ -605,12 +698,35 @@ export default function RecipeCookingScreen() {
                     textTransform: 'capitalize',
                   }}
                 >
-                  {selectedRecipe.kategori}
+                  {categoryName}
                 </Text>
               </View>
             ) : null}
 
-            {selectedRecipe.zorluk ? (
+            {areaName ? (
+              <View
+                style={{
+                  backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                  paddingHorizontal: 10,
+                  paddingVertical: 4,
+                  borderRadius: 8,
+                  borderWidth: 1,
+                  borderColor: 'rgba(16, 185, 129, 0.3)',
+                }}
+              >
+                <Text
+                  style={{
+                    color: '#10B981',
+                    fontSize: 12,
+                    fontWeight: '600',
+                  }}
+                >
+                  🌍 {areaName}
+                </Text>
+              </View>
+            ) : null}
+
+            {selectedRecipe?.zorluk ? (
               <View
                 style={{
                   backgroundColor: 'rgba(16, 185, 129, 0.15)',
@@ -634,7 +750,7 @@ export default function RecipeCookingScreen() {
               </View>
             ) : null}
 
-            {selectedRecipe.porsiyon ? (
+            {selectedRecipe?.porsiyon ? (
               <View
                 style={{
                   backgroundColor: 'rgba(236, 72, 153, 0.15)',
@@ -652,52 +768,80 @@ export default function RecipeCookingScreen() {
             ) : null}
           </View>
 
-          {/* ── Besin Değerleri Barları ── */}
-          <Text
-            style={{
-              color: '#94A3B8',
-              fontSize: 11,
-              fontWeight: '700',
-              letterSpacing: 0.5,
-              textTransform: 'uppercase',
-              marginBottom: 10,
-            }}
-          >
-            📊 Besin Değerleri ({selectedRecipe.porsiyon || 1} porsiyon)
-          </Text>
+          {/* YouTube Video Butonu */}
+          {youtubeUrl ? (
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => Linking.openURL(youtubeUrl)}
+              style={{
+                backgroundColor: '#EF4444',
+                borderRadius: 12,
+                paddingVertical: 10,
+                paddingHorizontal: 14,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                marginTop: 6,
+              }}
+            >
+              <Ionicons name="logo-youtube" size={18} color="#FFF" />
+              <Text style={{ color: '#FFF', fontSize: 13, fontWeight: '700' }}>
+                Yapılış Videosunu İzle (YouTube)
+              </Text>
+            </TouchableOpacity>
+          ) : null}
 
-          <NutritionBar
-            label="Kalori"
-            value={selectedRecipe.besin_degerleri?.kalori || 0}
-            maxValue={800}
-            color="#FF6B35"
-            unit="kcal"
-          />
-          <NutritionBar
-            label="Protein"
-            value={selectedRecipe.besin_degerleri?.protein || 0}
-            maxValue={80}
-            color="#10B981"
-            unit="g"
-          />
-          <NutritionBar
-            label="Karbonhidrat"
-            value={selectedRecipe.besin_degerleri?.karbonhidrat || 0}
-            maxValue={120}
-            color="#818CF8"
-            unit="g"
-          />
-          <NutritionBar
-            label="Yağ"
-            value={selectedRecipe.besin_degerleri?.yag || 0}
-            maxValue={60}
-            color="#F59E0B"
-            unit="g"
-          />
+          {/* ── Besin Değerleri Barları ── */}
+          {besinDegerleri && (
+            <View style={{ marginTop: 14 }}>
+              <Text
+                style={{
+                  color: '#94A3B8',
+                  fontSize: 11,
+                  fontWeight: '700',
+                  letterSpacing: 0.5,
+                  textTransform: 'uppercase',
+                  marginBottom: 10,
+                }}
+              >
+                📊 Besin Değerleri ({selectedRecipe?.porsiyon || 1} porsiyon)
+              </Text>
+
+              <NutritionBar
+                label="Kalori"
+                value={besinDegerleri?.kalori || 0}
+                maxValue={800}
+                color="#FF6B35"
+                unit="kcal"
+              />
+              <NutritionBar
+                label="Protein"
+                value={besinDegerleri?.protein || 0}
+                maxValue={80}
+                color="#10B981"
+                unit="g"
+              />
+              <NutritionBar
+                label="Karbonhidrat"
+                value={besinDegerleri?.karbonhidrat || 0}
+                maxValue={120}
+                color="#818CF8"
+                unit="g"
+              />
+              <NutritionBar
+                label="Yağ"
+                value={besinDegerleri?.yag || 0}
+                maxValue={60}
+                color="#F59E0B"
+                unit="g"
+              />
+            </View>
+          )}
         </View>
 
         {/* ── Katlanabilir Malzeme Listesi ── */}
-        <IngredientCollapsible ingredients={selectedRecipe.malzemeler} />
+        <IngredientCollapsible ingredients={malzemeler} />
 
         {/* ── Uygulanış Adımları ── */}
         <View style={{ marginBottom: 20 }}>
@@ -720,12 +864,12 @@ export default function RecipeCookingScreen() {
             </Text>
             {isCookingActive && (
               <Text style={{ color: '#10B981', fontSize: 13, fontWeight: '600' }}>
-                {completedSteps.length} / {selectedRecipe.yapilis_adimlari.length} Tamamlandı
+                {completedSteps.length} / {yapilisAdimlari.length} Tamamlandı
               </Text>
             )}
           </View>
 
-          {selectedRecipe.yapilis_adimlari.map((step, idx) => {
+          {yapilisAdimlari.map((step, idx) => {
             const isCompleted = completedSteps.includes(idx);
             const isCurrent = isCookingActive && !isCompleted && idx === firstUncompletedIndex;
 
@@ -925,7 +1069,8 @@ export default function RecipeCookingScreen() {
             {/* Buton 2: Kapat / Ana Sayfaya Dön */}
             <TouchableOpacity
               activeOpacity={0.8}
-              onPress={() => {
+              onPress={async () => {
+                await incrementRecipeStatCount();
                 setIsFinishModalVisible(false);
                 setIsCookingActive(false);
                 router.replace('/(tabs)');

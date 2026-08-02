@@ -1,17 +1,19 @@
 import { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StatusBar,
-  KeyboardAvoidingView, Platform, ActivityIndicator, Alert, Image,
+  KeyboardAvoidingView, Platform, ActivityIndicator, Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Link, useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useAlert } from '@/contexts/AlertContext';
 import { isValidEmail, isValidPasswordStrict } from '@/utils/validation';
 
 export default function RegisterScreen() {
   const { signUp } = useAuth();
   const { colors } = useTheme();
+  const { showAlert } = useAlert();
   const router = useRouter();
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -21,35 +23,36 @@ export default function RegisterScreen() {
 
   const handleRegister = async () => {
     if (!fullName || !email || !password || !confirmPassword) {
-      Alert.alert('Eksik bilgi', 'Lütfen tüm alanları doldur.');
+      showAlert({ title: 'Eksik Bilgi', message: 'Lütfen tüm alanları doldur.', type: 'warning' });
       return;
     }
     if (!isValidEmail(email)) {
-      Alert.alert('Geçersiz e-posta', 'Lütfen geçerli bir e-posta adresi gir.');
+      showAlert({ title: 'Geçersiz E-posta', message: 'Lütfen geçerli bir e-posta adresi gir.', type: 'warning' });
       return;
     }
     if (password !== confirmPassword) {
-      Alert.alert('Şifreler uyuşmuyor', 'Girdiğin şifreler aynı değil.');
+      showAlert({ title: 'Şifreler Uyuşmuyor', message: 'Girdiğin şifreler aynı değil.', type: 'warning' });
       return;
     }
     const passwordCheck = isValidPasswordStrict(password);
     if (!passwordCheck.valid) {
-      Alert.alert('Zayıf şifre', passwordCheck.message!);
+      showAlert({ title: 'Zayıf Şifre', message: passwordCheck.message!, type: 'warning' });
       return;
     }
 
     setLoading(true);
-    const { error } = await signUp(email.trim(), password, fullName.trim()); // artık doğru: fullName gönderiliyor
+    const { error } = await signUp(email.trim(), password, fullName.trim());
     setLoading(false);
 
     if (error) {
-      Alert.alert('Kayıt başarısız', error);
+      showAlert({ title: 'Kayıt Başarısız', message: error, type: 'error' });
     } else {
-      Alert.alert(
-        'Kayıt başarılı',
-        'E-postana gönderilen doğrulama bağlantısına tıklayarak hesabını onayla.',
-        [{ text: 'Tamam', onPress: () => router.replace('/(auth)/login') }]
-      );
+      showAlert({
+        title: 'Kayıt Başarılı 🎉',
+        message: 'E-postana gönderilen doğrulama bağlantısına tıklayarak hesabını onayla.',
+        type: 'success',
+        onConfirm: () => router.replace('/(auth)/login'),
+      });
     }
   };
 

@@ -11,6 +11,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme, ThemeMode } from '@/contexts/ThemeContext';
+import { ThemeColors } from '@/constants/Colors';
+
 // ─────────────── Tipler ───────────────
 type ThemeOption = 'system' | 'light' | 'dark';
 type LanguageOption = 'tr' | 'en';
@@ -42,6 +44,7 @@ function DropdownModal<T extends string>({
   selected,
   onSelect,
   onClose,
+  colors,
 }: {
   visible: boolean;
   title: string;
@@ -50,23 +53,24 @@ function DropdownModal<T extends string>({
   selected: T;
   onSelect: (v: T) => void;
   onClose: () => void;
+  colors: ThemeColors;
 }) {
   return (
     <Modal visible={visible} transparent animationType="fade">
       <TouchableOpacity
         activeOpacity={1}
         onPress={onClose}
-        style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' }}
+        style={{ flex: 1, backgroundColor: colors.overlay, justifyContent: 'flex-end' }}
       >
         <View
           style={{
-            backgroundColor: '#1E293B',
+            backgroundColor: colors.card,
             borderTopLeftRadius: 24,
             borderTopRightRadius: 24,
             paddingBottom: 36,
             paddingTop: 8,
             borderTopWidth: 1,
-            borderColor: 'rgba(71, 85, 105, 0.3)',
+            borderColor: colors.cardBorder,
           }}
         >
           {/* Tutaç */}
@@ -74,7 +78,7 @@ function DropdownModal<T extends string>({
             style={{
               width: 40,
               height: 4,
-              backgroundColor: 'rgba(71, 85, 105, 0.5)',
+              backgroundColor: colors.iconDefault,
               borderRadius: 2,
               alignSelf: 'center',
               marginBottom: 16,
@@ -82,7 +86,7 @@ function DropdownModal<T extends string>({
           />
           <Text
             style={{
-              color: '#F1F5F9',
+              color: colors.textPrimary,
               fontSize: 16,
               fontWeight: '800',
               paddingHorizontal: 20,
@@ -102,19 +106,19 @@ function DropdownModal<T extends string>({
                 paddingHorizontal: 20,
                 paddingVertical: 14,
                 borderTopWidth: idx > 0 ? 1 : 0,
-                borderTopColor: 'rgba(71, 85, 105, 0.2)',
+                borderTopColor: colors.divider,
               }}
             >
               <Text
                 style={{
-                  color: opt === selected ? '#FF6B35' : '#F1F5F9',
+                  color: opt === selected ? colors.primary : colors.textPrimary,
                   fontSize: 15,
                   fontWeight: opt === selected ? '700' : '500',
                 }}
               >
                 {labels[opt]}
               </Text>
-              {opt === selected && <Ionicons name="checkmark" size={18} color="#FF6B35" />}
+              {opt === selected && <Ionicons name="checkmark" size={18} color={colors.primary} />}
             </TouchableOpacity>
           ))}
         </View>
@@ -132,6 +136,7 @@ function ToggleRow({
   description,
   value,
   onChange,
+  colors,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   iconBg: string;
@@ -140,6 +145,7 @@ function ToggleRow({
   description: string;
   value: boolean;
   onChange: (v: boolean) => void;
+  colors: ThemeColors;
 }) {
   return (
     <View
@@ -165,15 +171,15 @@ function ToggleRow({
         <Ionicons name={icon} size={21} color={iconColor} />
       </View>
       <View style={{ flex: 1, minWidth: 0 }}>
-        <Text style={{ color: '#F1F5F9', fontSize: 15, fontWeight: '700' }}>{label}</Text>
-        <Text style={{ color: '#64748B', fontSize: 12, fontWeight: '500', marginTop: 1 }} numberOfLines={1}>{description}</Text>
+        <Text style={{ color: colors.textPrimary, fontSize: 15, fontWeight: '700' }}>{label}</Text>
+        <Text style={{ color: colors.textMuted, fontSize: 12, fontWeight: '500', marginTop: 1 }} numberOfLines={1}>{description}</Text>
       </View>
       <Switch
         value={value}
         onValueChange={onChange}
-        trackColor={{ false: '#1E293B', true: 'rgba(255, 107, 53, 0.4)' }}
-        thumbColor={value ? '#FF6B35' : '#475569'}
-        ios_backgroundColor="#334155"
+        trackColor={{ false: colors.card, true: 'rgba(255, 107, 53, 0.4)' }}
+        thumbColor={value ? colors.primary : colors.iconDefault}
+        ios_backgroundColor={colors.badgeBg}
       />
     </View>
   );
@@ -187,6 +193,7 @@ function DropdownRow({
   label,
   value,
   onPress,
+  colors,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   iconBg: string;
@@ -194,6 +201,7 @@ function DropdownRow({
   label: string;
   value: string;
   onPress: () => void;
+  colors: ThemeColors;
 }) {
   return (
     <TouchableOpacity
@@ -220,28 +228,28 @@ function DropdownRow({
         <Ionicons name={icon} size={21} color={iconColor} />
       </View>
       <View style={{ flex: 1 }}>
-        <Text style={{ color: '#F1F5F9', fontSize: 15, fontWeight: '700' }}>{label}</Text>
-        <Text style={{ color: '#64748B', fontSize: 12, fontWeight: '500', marginTop: 1 }}>{value}</Text>
+        <Text style={{ color: colors.textPrimary, fontSize: 15, fontWeight: '700' }}>{label}</Text>
+        <Text style={{ color: colors.textMuted, fontSize: 12, fontWeight: '500', marginTop: 1 }}>{value}</Text>
       </View>
-      <Ionicons name="chevron-forward" size={15} color="#475569" />
+      <Ionicons name="chevron-forward" size={15} color={colors.iconDefault} />
     </TouchableOpacity>
   );
 }
 
 // ─────────────── Divider ───────────────
-const Divider = () => (
-  <View style={{ height: 1, backgroundColor: 'rgba(71, 85, 105, 0.2)', marginLeft: 74 }} />
-);
+function ThemeDivider({ colors }: { colors: ThemeColors }) {
+  return <View style={{ height: 1, backgroundColor: colors.divider, marginLeft: 74 }} />;
+}
 
 // ───────────────── Section Kart ─────────────────
-function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
+function SectionCard({ title, children, colors }: { title: string; children: React.ReactNode; colors: ThemeColors }) {
   return (
     <View style={{ marginBottom: 14 }}>
       <Text
         style={{
-          color: '#475569',
+          color: colors.textPrimary,
           fontSize: 11,
-          fontWeight: '700',
+          fontWeight: '800',
           letterSpacing: 1,
           textTransform: 'uppercase',
           marginBottom: 6,
@@ -252,10 +260,10 @@ function SectionCard({ title, children }: { title: string; children: React.React
       </Text>
       <View
         style={{
-          backgroundColor: '#1E293B',
+          backgroundColor: colors.card,
           borderRadius: 18,
           borderWidth: 1,
-          borderColor: 'rgba(71, 85, 105, 0.3)',
+          borderColor: colors.cardBorder,
           overflow: 'hidden',
         }}
       >
@@ -285,15 +293,15 @@ export default function PreferencesScreen() {
   const [unitModalVisible, setUnitModalVisible] = useState(false);
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#0F172A' }} edges={['bottom']}>
-      <StatusBar barStyle="light-content" />
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['bottom']}>
+      <StatusBar barStyle={colors.statusBar} />
 
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingTop: 16, paddingBottom: 40, paddingHorizontal: 16 }}
       >
         {/* ── Görünüm ── */}
-        <SectionCard title="Görünüm">
+        <SectionCard title="Görünüm" colors={colors}>
           <DropdownRow
               icon="contrast-outline"
               iconBg="rgba(99, 102, 241, 0.15)"
@@ -301,11 +309,12 @@ export default function PreferencesScreen() {
               label="Tema"
               value={THEME_LABELS[mode]}
               onPress={() => setThemeModalVisible(true)}
+              colors={colors}
             />
         </SectionCard>
 
         {/* ── Bildirim & Ses ── */}
-        <SectionCard title="Bildirim & Ses">
+        <SectionCard title="Bildirim & Ses" colors={colors}>
           <ToggleRow
             icon="notifications-outline"
             iconBg="rgba(16, 185, 129, 0.15)"
@@ -314,8 +323,9 @@ export default function PreferencesScreen() {
             description="Günlük hatırlatmalar ve öneriler"
             value={notifications}
             onChange={setNotifications}
+            colors={colors}
           />
-          <Divider />
+          <ThemeDivider colors={colors} />
           <ToggleRow
             icon="volume-medium-outline"
             iconBg="rgba(96, 165, 250, 0.15)"
@@ -324,8 +334,9 @@ export default function PreferencesScreen() {
             description="Uygulama içi ses efektleri"
             value={sound}
             onChange={setSound}
+            colors={colors}
           />
-          <Divider />
+          <ThemeDivider colors={colors} />
           <ToggleRow
             icon="phone-portrait-outline"
             iconBg="rgba(168, 85, 247, 0.15)"
@@ -334,11 +345,12 @@ export default function PreferencesScreen() {
             description="Dokunuş geri bildirimi"
             value={vibration}
             onChange={setVibration}
+            colors={colors}
           />
         </SectionCard>
 
         {/* ── Dil & Bölge ── */}
-        <SectionCard title="Dil & Bölge">
+        <SectionCard title="Dil & Bölge" colors={colors}>
           <DropdownRow
             icon="language-outline"
             iconBg="rgba(245, 158, 11, 0.15)"
@@ -346,8 +358,9 @@ export default function PreferencesScreen() {
             label="Dil"
             value={LANGUAGE_LABELS[language]}
             onPress={() => setLanguageModalVisible(true)}
+            colors={colors}
           />
-          <Divider />
+          <ThemeDivider colors={colors} />
           <DropdownRow
             icon="scale-outline"
             iconBg="rgba(239, 68, 68, 0.15)"
@@ -355,30 +368,9 @@ export default function PreferencesScreen() {
             label="Ölçü Birimi"
             value={UNIT_LABELS[unit]}
             onPress={() => setUnitModalVisible(true)}
+            colors={colors}
           />
         </SectionCard>
-
-        {/* ── Not ── */}
-        <View style={{ marginTop: 8 }}>
-          <View
-            style={{
-              backgroundColor: 'rgba(99, 102, 241, 0.08)',
-              borderRadius: 14,
-              paddingHorizontal: 14,
-              paddingVertical: 12,
-              flexDirection: 'row',
-              alignItems: 'flex-start',
-              gap: 10,
-              borderWidth: 1,
-              borderColor: 'rgba(99, 102, 241, 0.2)',
-            }}
-          >
-            <Ionicons name="information-circle-outline" size={18} color="#818CF8" style={{ marginTop: 1 }} />
-            <Text style={{ color: '#94A3B8', fontSize: 12, fontWeight: '500', flex: 1, lineHeight: 18 }}>
-              Tema, dil ve ölçü birimi değişiklikleri uygulamanın sonraki sürümünde tam olarak devreye girecektir.
-            </Text>
-          </View>
-        </View>
       </ScrollView>
 
       {/* Dropdownlar */}
@@ -390,6 +382,7 @@ export default function PreferencesScreen() {
         selected={mode}
         onSelect={setMode}
         onClose={() => setThemeModalVisible(false)}
+        colors={colors}
       />
       <DropdownModal
         visible={languageModalVisible}
@@ -399,6 +392,7 @@ export default function PreferencesScreen() {
         selected={language}
         onSelect={setLanguage}
         onClose={() => setLanguageModalVisible(false)}
+        colors={colors}
       />
       <DropdownModal
         visible={unitModalVisible}
@@ -408,6 +402,7 @@ export default function PreferencesScreen() {
         selected={unit}
         onSelect={setUnit}
         onClose={() => setUnitModalVisible(false)}
+        colors={colors}
       />
     </SafeAreaView>
   );

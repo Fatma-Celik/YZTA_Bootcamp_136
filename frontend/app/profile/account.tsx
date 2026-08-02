@@ -7,12 +7,15 @@ import {
   Alert,
   StatusBar,
   ActivityIndicator,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/hooks/useProfile';
-import { confirmAction } from '@/utils/confirmAction';
+import { useAlert } from '@/contexts/AlertContext';
+import { useRouter } from 'expo-router';
+import { useTheme } from '@/contexts/ThemeContext';
 
 // ─────────────── Kırmızı Aksiyon Satırı ───────────────
 function DangerRow({
@@ -148,20 +151,22 @@ function EditableField({
 export default function AccountScreen() {
   const { user, signOut } = useAuth();
   const { profile, loading, updateProfile } = useProfile();
+  const { showAlert } = useAlert();
+  const router = useRouter();
 
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
 
-  const [fullName, setFullName] = useState('');
-  const [heightCm, setHeightCm] = useState('');
-  const [weightKg, setWeightKg] = useState('');
+  const [fullName, setFullName] = useState(profile?.full_name || '');
+  const [heightCm, setHeightCm] = useState(profile?.height_cm ? String(profile.height_cm) : '');
+  const [weightKg, setWeightKg] = useState(profile?.weight_kg ? String(profile.weight_kg) : '');
 
   useEffect(() => {
     if (profile) {
-      setFullName(profile.full_name ?? '');
-      setHeightCm(profile.height_cm != null ? String(profile.height_cm) : '');
-      setWeightKg(profile.weight_kg != null ? String(profile.weight_kg) : '');
+      setFullName(profile.full_name || '');
+      setHeightCm(profile.height_cm ? String(profile.height_cm) : '');
+      setWeightKg(profile.weight_kg ? String(profile.weight_kg) : '');
     }
   }, [profile]);
 
@@ -177,49 +182,54 @@ export default function AccountScreen() {
       weight_kg: weightKg ? parseFloat(weightKg) : null,
     });
     setSaving(false);
-    if (error) Alert.alert('Hata', error);
+    if (error) showAlert({ title: 'Hata', message: error, type: 'error' });
     else {
       setEditing(false);
-      Alert.alert('Başarılı', 'Bilgilerin güncellendi.');
+      showAlert({ title: 'Başarılı', message: 'Bilgilerin güncellendi.', type: 'success' });
     }
   };
 
   const handleSignOut = () => {
-    confirmAction(
-      'Oturumu Kapat',
-      'Oturumunuzu kapatmak istediğinize emin misiniz?',
-      async () => {
+    showAlert({
+      title: 'Oturumu Kapat',
+      message: 'Oturumunuzu kapatmak istediğinize emin misiniz?',
+      type: 'confirm',
+      confirmText: 'Oturumu Kapat',
+      cancelText: 'İptal',
+      onConfirm: async () => {
         setSigningOut(true);
         await signOut();
       },
-      'Oturumu Kapat'
-    );
+    });
   };
 
   const handleDeleteAccount = () => {
-    confirmAction(
-      'Hesabı Sil',
-      'Hesabınızı kalıcı olarak silmek istediğinize emin misiniz? Bu işlem geri alınamaz ve tüm verileriniz silinecektir.',
-      () => {
-        // Hesap silme işlemi henüz aktif değil
-        Alert.alert('Bilgi', 'Hesap silme özelliği yakında aktif olacak.');
+    showAlert({
+      title: 'Hesabı Sil',
+      message: 'Hesabınızı kalıcı olarak silmek istediğinize emin misiniz? Bu işlem geri alınamaz ve tüm verileriniz silinecektir.',
+      type: 'confirm',
+      confirmText: 'Evet, Hesabı Sil',
+      cancelText: 'İptal',
+      onConfirm: () => {
+        showAlert({ title: 'Bilgi', message: 'Hesap silme özelliği yakında aktif olacak.', type: 'info' });
       },
-      'Evet, Hesabı Sil'
-    );
+    });
   };
+
+  const { colors } = useTheme();
 
   // ── Yükleniyor ──
   if (loading) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#0F172A', justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator color="#FF6B35" size="large" />
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator color={colors.primary} size="large" />
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#0F172A' }} edges={['bottom']}>
-      <StatusBar barStyle="light-content" />
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['bottom']}>
+      <StatusBar barStyle={colors.statusBar} />
 
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -398,7 +408,7 @@ export default function AccountScreen() {
           >
             <TouchableOpacity
               activeOpacity={0.75}
-              onPress={() => Alert.alert('Bilgi', 'Şifre değiştirme özelliği yakında aktif olacak.')}
+              onPress={() => showAlert({ title: 'Bilgi', message: 'Şifre değiştirme özelliği yakında aktif olacak.', type: 'info' })}
               style={{
                 flexDirection: 'row',
                 alignItems: 'center',

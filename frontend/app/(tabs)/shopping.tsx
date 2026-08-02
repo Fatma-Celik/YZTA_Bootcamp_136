@@ -15,6 +15,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import IngredientCard, { IngredientItem } from '@/components/IngredientCard';
+import { useTheme } from '@/contexts/ThemeContext';
+import { incrementShoppingStatCount } from '@/hooks/useProfileStats';
 
 // ─────────────── Tipler ───────────────
 export type PriorityLevel = 'urgent' | 'important' | 'normal';
@@ -22,6 +24,8 @@ export type PriorityLevel = 'urgent' | 'important' | 'normal';
 export interface SavedIngredient {
   idIngredient: string;
   strIngredient: string;
+  kategori?: string;
+  tahmini_fiyat?: string;
 }
 
 export interface ShoppingList {
@@ -31,6 +35,8 @@ export interface ShoppingList {
   createdAt: string; // "DD.MM.YYYY"
   isCompleted: boolean;
   items: SavedIngredient[];
+  kaynak?: string;
+  toplamTahminiTutar?: string;
 }
 
 const STORAGE_KEY = '@shopping_lists_v1';
@@ -72,6 +78,7 @@ export default function TabShoppingScreen() {
   const [savingList, setSavingList] = useState(false);
   const [visibleCount, setVisibleCount] = useState(12);
   const [priorityDropdownOpen, setPriorityDropdownOpen] = useState(false);
+  const { colors } = useTheme();
 
   // ─────────────── AsyncStorage İşlemleri (Maksimum 10 Liste) ───────────────
   const loadSavedLists = async () => {
@@ -170,6 +177,7 @@ export default function TabShoppingScreen() {
 
     const updatedLists = [newList, ...savedLists];
     await saveListsToStorage(updatedLists);
+    await incrementShoppingStatCount();
 
     setSavingList(false);
     setCreateModalVisible(false);
@@ -222,14 +230,14 @@ export default function TabShoppingScreen() {
 
   // ─────────────── RENDER: Ana Ekran ───────────────
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#0F172A' }}>
-      <StatusBar barStyle="light-content" />
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+      <StatusBar barStyle={colors.statusBar} />
 
       {/* Üst Header Alanı */}
       <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 16 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
           <View>
-            <Text style={{ color: '#F1F5F9', fontSize: 22, fontWeight: '800', letterSpacing: -0.4 }}>
+            <Text style={{ color: colors.textPrimary, fontSize: 22, fontWeight: '800', letterSpacing: -0.4 }}>
               Eksik Listeleri
             </Text>
             <Text style={{ color: '#94A3B8', fontSize: 12, fontWeight: '500', marginTop: 2 }}>
@@ -355,7 +363,7 @@ export default function TabShoppingScreen() {
               >
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                   {/* Başlık ve Önem Badge'i */}
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1, flexWrap: 'wrap' }}>
                     <Text
                       numberOfLines={1}
                       style={{
@@ -368,6 +376,24 @@ export default function TabShoppingScreen() {
                     >
                       {item.title}
                     </Text>
+
+                    {/* Gemini AI Rozeti */}
+                    {item.kaynak === 'gemini' && (
+                      <View
+                        style={{
+                          backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                          paddingHorizontal: 7,
+                          paddingVertical: 2,
+                          borderRadius: 6,
+                          borderWidth: 1,
+                          borderColor: 'rgba(16, 185, 129, 0.3)',
+                        }}
+                      >
+                        <Text style={{ color: '#10B981', fontSize: 10, fontWeight: '800' }}>
+                          ✨ AI
+                        </Text>
+                      </View>
+                    )}
 
                     {/* Önem Rozeti */}
                     <View
@@ -409,14 +435,23 @@ export default function TabShoppingScreen() {
                   </View>
                 </View>
 
-                {/* Alt Detaylar (Tarih ve Adet) */}
+                {/* Alt Detaylar (Tarih, Adet ve Toplam Tahmini Tutar) */}
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 12 }}>
                   <Text style={{ color: '#94A3B8', fontSize: 12, fontWeight: '600' }}>
                     📦 {item.items.length} adet ürün
                   </Text>
-                  <Text style={{ color: '#64748B', fontSize: 11, fontWeight: '500' }}>
-                    📅 {item.createdAt}
-                  </Text>
+                  {item.toplamTahminiTutar ? (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                      <Ionicons name="wallet-outline" size={14} color="#10B981" />
+                      <Text style={{ color: '#10B981', fontSize: 12, fontWeight: '700' }}>
+                        {item.toplamTahminiTutar}
+                      </Text>
+                    </View>
+                  ) : (
+                    <Text style={{ color: '#64748B', fontSize: 11, fontWeight: '500' }}>
+                      📅 {item.createdAt}
+                    </Text>
+                  )}
                 </View>
               </TouchableOpacity>
             );
@@ -431,10 +466,10 @@ export default function TabShoppingScreen() {
         transparent={true}
         onRequestClose={() => setCreateModalVisible(false)}
       >
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' }}>
+        <View style={{ flex: 1, backgroundColor: colors.overlay, justifyContent: 'flex-end' }}>
           <View
             style={{
-              backgroundColor: '#1E293B',
+              backgroundColor: colors.card,
               borderTopLeftRadius: 24,
               borderTopRightRadius: 24,
               height: '90%',
@@ -446,7 +481,7 @@ export default function TabShoppingScreen() {
               style={{
                 width: 40,
                 height: 4,
-                backgroundColor: '#475569',
+                backgroundColor: colors.iconDefault,
                 borderRadius: 2,
                 alignSelf: 'center',
                 marginBottom: 12,
@@ -455,41 +490,41 @@ export default function TabShoppingScreen() {
 
             {/* Modal Header */}
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingBottom: 12 }}>
-              <Text style={{ color: '#F1F5F9', fontSize: 18, fontWeight: '800' }}>
+              <Text style={{ color: colors.textPrimary, fontSize: 18, fontWeight: '800' }}>
                 Yeni Eksik Listesi
               </Text>
               <TouchableOpacity onPress={() => setCreateModalVisible(false)}>
-                <Ionicons name="close-circle" size={26} color="#475569" />
+                <Ionicons name="close-circle" size={26} color={colors.iconDefault} />
               </TouchableOpacity>
             </View>
 
             <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 20 }} keyboardShouldPersistTaps="handled">
               {/* Form: Liste Adı */}
-              <Text style={{ color: '#CBD5E1', fontSize: 12, fontWeight: '700', marginBottom: 6 }}>
+              <Text style={{ color: colors.textSecondary, fontSize: 12, fontWeight: '700', marginBottom: 6 }}>
                 LİSTE ADI
               </Text>
               <TextInput
                 value={newTitle}
                 onChangeText={setNewTitle}
                 placeholder="İhtiyaç Listesi"
-                placeholderTextColor="#64748B"
+                placeholderTextColor={colors.textMuted}
                 style={{
-                  backgroundColor: 'rgba(30, 41, 59, 0.9)',
+                  backgroundColor: colors.inputBg,
                   borderRadius: 12,
                   paddingHorizontal: 14,
                   height: 44,
-                  color: '#F1F5F9',
+                  color: colors.textPrimary,
                   fontSize: 14,
                   fontWeight: '600',
                   borderWidth: 1,
-                  borderColor: 'rgba(71, 85, 105, 0.5)',
+                  borderColor: colors.cardBorder,
                   marginBottom: 14,
                   outlineStyle: 'none',
                 } as any}
               />
 
               {/* Form: Önem Etiketi Dropdown */}
-              <Text style={{ color: '#CBD5E1', fontSize: 12, fontWeight: '700', marginBottom: 6 }}>
+              <Text style={{ color: colors.textSecondary, fontSize: 12, fontWeight: '700', marginBottom: 6 }}>
                 ÖNEM ETİKETİ
               </Text>
               <View style={{ position: 'relative', zIndex: 10, marginBottom: 16 }}>
@@ -497,7 +532,7 @@ export default function TabShoppingScreen() {
                   activeOpacity={0.8}
                   onPress={() => setPriorityDropdownOpen(!priorityDropdownOpen)}
                   style={{
-                    backgroundColor: 'rgba(30, 41, 59, 0.9)',
+                    backgroundColor: colors.inputBg,
                     borderRadius: 12,
                     paddingHorizontal: 14,
                     height: 44,
@@ -505,7 +540,7 @@ export default function TabShoppingScreen() {
                     alignItems: 'center',
                     justifyContent: 'space-between',
                     borderWidth: 1,
-                    borderColor: 'rgba(71, 85, 105, 0.5)',
+                    borderColor: colors.cardBorder,
                   }}
                 >
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -517,14 +552,14 @@ export default function TabShoppingScreen() {
                         backgroundColor: priorityConfig[newPriority].color,
                       }}
                     />
-                    <Text style={{ color: '#F1F5F9', fontSize: 14, fontWeight: '600' }}>
+                    <Text style={{ color: colors.textPrimary, fontSize: 14, fontWeight: '600' }}>
                       {priorityConfig[newPriority].label}
                     </Text>
                   </View>
                   <Ionicons
                     name={priorityDropdownOpen ? 'chevron-up' : 'chevron-down'}
                     size={18}
-                    color="#94A3B8"
+                    color={colors.textMuted}
                   />
                 </TouchableOpacity>
 
@@ -536,12 +571,12 @@ export default function TabShoppingScreen() {
                       top: 48,
                       left: 0,
                       right: 0,
-                      backgroundColor: '#0F172A',
+                      backgroundColor: colors.card,
                       borderRadius: 12,
                       borderWidth: 1,
-                      borderColor: 'rgba(71, 85, 105, 0.5)',
+                      borderColor: colors.cardBorder,
                       padding: 6,
-                      shadowColor: '#000',
+                      shadowColor: colors.cardBorder,
                       shadowOffset: { width: 0, height: 4 },
                       shadowOpacity: 0.3,
                       shadowRadius: 8,
@@ -576,7 +611,7 @@ export default function TabShoppingScreen() {
                         />
                         <Text
                           style={{
-                            color: newPriority === pKey ? '#FF6B35' : '#CBD5E1',
+                            color: newPriority === pKey ? '#FF6B35' : colors.textPrimary,
                             fontSize: 13,
                             fontWeight: newPriority === pKey ? '700' : '500',
                           }}
@@ -592,58 +627,58 @@ export default function TabShoppingScreen() {
               {/* Seçilen Ürünler Çip Listesi */}
               {selectedIngredients.length > 0 && (
                 <View style={{ marginBottom: 14 }}>
-                  <Text style={{ color: '#CBD5E1', fontSize: 12, fontWeight: '700', marginBottom: 6 }}>
+                  <Text style={{ color: colors.textSecondary, fontSize: 12, fontWeight: '700', marginBottom: 6 }}>
                     SEÇİLEN ÜRÜNLER ({selectedIngredients.length})
                   </Text>
                   <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
                     {selectedIngredients.map((ing) => (
-                      <TouchableOpacity
+                      <View
                         key={ing.idIngredient}
-                        activeOpacity={0.7}
-                        onPress={() => handleRemoveSelectedIngredient(ing.idIngredient)}
                         style={{
                           flexDirection: 'row',
                           alignItems: 'center',
-                          backgroundColor: 'rgba(255, 107, 53, 0.18)',
-                          borderWidth: 1,
-                          borderColor: 'rgba(255, 107, 53, 0.35)',
+                          backgroundColor: 'rgba(255, 107, 53, 0.15)',
                           paddingHorizontal: 10,
-                          paddingVertical: 5,
+                          paddingVertical: 6,
                           borderRadius: 20,
+                          borderWidth: 1,
+                          borderColor: 'rgba(255, 107, 53, 0.3)',
                           gap: 6,
                         }}
                       >
-                        <Text style={{ color: '#FB923C', fontSize: 12, fontWeight: '700' }}>
+                        <Text style={{ color: '#FF6B35', fontSize: 12, fontWeight: '700' }}>
                           {ing.strIngredient}
                         </Text>
-                        <Ionicons name="close-circle" size={16} color="#FB923C" />
-                      </TouchableOpacity>
+                        <TouchableOpacity onPress={() => handleRemoveSelectedIngredient(ing.idIngredient)}>
+                          <Ionicons name="close-circle" size={16} color="#FF6B35" />
+                        </TouchableOpacity>
+                      </View>
                     ))}
                   </View>
                 </View>
               )}
 
               {/* İnce Separator */}
-              <View style={{ height: 1, backgroundColor: 'rgba(71, 85, 105, 0.4)', marginVertical: 10 }} />
+              <View style={{ height: 1, backgroundColor: colors.divider, marginVertical: 10 }} />
 
               {/* Ingredient Arama Barı */}
-              <Text style={{ color: '#CBD5E1', fontSize: 12, fontWeight: '700', marginBottom: 6 }}>
+              <Text style={{ color: colors.textSecondary, fontSize: 12, fontWeight: '700', marginBottom: 6 }}>
                 ÜRÜN EKLE
               </Text>
               <View
                 style={{
                   flexDirection: 'row',
                   alignItems: 'center',
-                  backgroundColor: 'rgba(30, 41, 59, 0.9)',
+                  backgroundColor: colors.inputBg,
                   borderRadius: 12,
                   paddingHorizontal: 12,
                   height: 42,
                   borderWidth: 1,
-                  borderColor: 'rgba(71, 85, 105, 0.5)',
+                  borderColor: colors.cardBorder,
                   marginBottom: 12,
                 }}
               >
-                <Ionicons name="search-outline" size={16} color="#94A3B8" />
+                <Ionicons name="search-outline" size={16} color={colors.textMuted} />
                 <TextInput
                   value={ingredientSearchQuery}
                   onChangeText={(t) => {
@@ -651,19 +686,19 @@ export default function TabShoppingScreen() {
                     setVisibleCount(12);
                   }}
                   placeholder="Malzeme ara (ör: Tomato, Chicken)..."
-                  placeholderTextColor="#64748B"
+                  placeholderTextColor={colors.textMuted}
                   style={{
                     flex: 1,
                     marginLeft: 8,
                     fontSize: 13,
-                    color: '#F1F5F9',
+                    color: colors.textPrimary,
                     fontWeight: '500',
                     outlineStyle: 'none',
                   } as any}
                 />
                 {ingredientSearchQuery.length > 0 && (
                   <TouchableOpacity onPress={() => setIngredientSearchQuery('')}>
-                    <Ionicons name="close-circle" size={16} color="#64748B" />
+                    <Ionicons name="close-circle" size={16} color={colors.textMuted} />
                   </TouchableOpacity>
                 )}
               </View>
@@ -672,7 +707,7 @@ export default function TabShoppingScreen() {
               {fetchingIngredients ? (
                 <View style={{ paddingVertical: 30, alignItems: 'center' }}>
                   <ActivityIndicator size="small" color="#FF6B35" />
-                  <Text style={{ color: '#94A3B8', fontSize: 12, marginTop: 8 }}>
+                  <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 8 }}>
                     Malzemeler yükleniyor...
                   </Text>
                 </View>
@@ -712,7 +747,7 @@ export default function TabShoppingScreen() {
               )}
 
               {/* Separator */}
-              <View style={{ height: 1, backgroundColor: 'rgba(71, 85, 105, 0.4)', marginVertical: 14 }} />
+              <View style={{ height: 1, backgroundColor: colors.divider, marginVertical: 14 }} />
 
               {/* Save (Kaydet) Butonu - Ürün seçilmemişse engellenir */}
               <TouchableOpacity
@@ -720,7 +755,7 @@ export default function TabShoppingScreen() {
                 disabled={savingList || selectedIngredients.length === 0}
                 onPress={handleSaveNewList}
                 style={{
-                  backgroundColor: selectedIngredients.length === 0 ? '#475569' : '#FF6B35',
+                  backgroundColor: selectedIngredients.length === 0 ? colors.badgeBg : '#FF6B35',
                   height: 48,
                   borderRadius: 14,
                   alignItems: 'center',
@@ -756,10 +791,10 @@ export default function TabShoppingScreen() {
         transparent={true}
         onRequestClose={() => setDetailModalVisible(false)}
       >
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' }}>
+        <View style={{ flex: 1, backgroundColor: colors.overlay, justifyContent: 'flex-end' }}>
           <View
             style={{
-              backgroundColor: '#1E293B',
+              backgroundColor: colors.card,
               borderTopLeftRadius: 24,
               borderTopRightRadius: 24,
               maxHeight: '80%',
@@ -772,7 +807,7 @@ export default function TabShoppingScreen() {
               style={{
                 width: 40,
                 height: 4,
-                backgroundColor: '#475569',
+                backgroundColor: colors.iconDefault,
                 borderRadius: 2,
                 alignSelf: 'center',
                 marginBottom: 12,
@@ -784,11 +819,11 @@ export default function TabShoppingScreen() {
                 {/* Modal Header */}
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                   <View style={{ flex: 1, paddingRight: 10 }}>
-                    <Text style={{ color: '#F1F5F9', fontSize: 20, fontWeight: '800' }}>
+                    <Text style={{ color: colors.textPrimary, fontSize: 20, fontWeight: '800' }}>
                       {selectedListDetail.title}
                     </Text>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 4 }}>
-                      <Text style={{ color: '#94A3B8', fontSize: 12, fontWeight: '500' }}>
+                      <Text style={{ color: colors.textMuted, fontSize: 12, fontWeight: '500' }}>
                         📅 {selectedListDetail.createdAt}
                       </Text>
                       <View
@@ -811,14 +846,61 @@ export default function TabShoppingScreen() {
                       <Ionicons name="trash-outline" size={24} color="#EF4444" />
                     </TouchableOpacity>
                     <TouchableOpacity onPress={() => setDetailModalVisible(false)}>
-                      <Ionicons name="close-circle" size={28} color="#475569" />
+                      <Ionicons name="close-circle" size={28} color={colors.iconDefault} />
                     </TouchableOpacity>
                   </View>
                 </View>
 
+                {/* Toplam Tahmini Tutar Kartı (Kaynak Gemini ise) */}
+                {selectedListDetail.toplamTahminiTutar && (
+                  <View
+                    style={{
+                      backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                      borderRadius: 14,
+                      padding: 14,
+                      marginTop: 8,
+                      marginBottom: 12,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      borderWidth: 1,
+                      borderColor: 'rgba(16, 185, 129, 0.3)',
+                    }}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                      <View
+                        style={{
+                          width: 38,
+                          height: 38,
+                          borderRadius: 12,
+                          backgroundColor: 'rgba(16, 185, 129, 0.2)',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <Ionicons name="wallet" size={18} color="#10B981" />
+                      </View>
+                      <View>
+                        <Text style={{ color: '#94A3B8', fontSize: 11, fontWeight: '600' }}>Toplam Tahmini Tutar</Text>
+                        <Text style={{ color: '#10B981', fontSize: 16, fontWeight: '800' }}>{selectedListDetail.toplamTahminiTutar}</Text>
+                      </View>
+                    </View>
+                    <View
+                      style={{
+                        backgroundColor: 'rgba(16, 185, 129, 0.2)',
+                        paddingHorizontal: 10,
+                        paddingVertical: 4,
+                        borderRadius: 8,
+                      }}
+                    >
+                      <Text style={{ color: '#10B981', fontSize: 11, fontWeight: '700' }}>✨ AI Hesaplama</Text>
+                    </View>
+                  </View>
+                )}
+
                 {/* Alt Başlık & Separator */}
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }}>
-                  <Text style={{ color: '#FB923C', fontSize: 13, fontWeight: '800', letterSpacing: 0.5 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 }}>
+                  <Text style={{ color: '#FF6B35', fontSize: 13, fontWeight: '800', letterSpacing: 0.5 }}>
                     EKSİKLER ({selectedListDetail.items.length})
                   </Text>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -833,14 +915,78 @@ export default function TabShoppingScreen() {
                   </View>
                 </View>
 
-                <View style={{ height: 1, backgroundColor: 'rgba(71, 85, 105, 0.4)', marginVertical: 12 }} />
+                <View style={{ height: 1, backgroundColor: colors.divider, marginVertical: 12 }} />
 
                 {/* Salt Okunur Ingredients Listesi */}
                 <ScrollView style={{ maxHeight: 380 }} showsVerticalScrollIndicator={false}>
                   {selectedListDetail.items.length === 0 ? (
-                    <Text style={{ color: '#64748B', fontSize: 13, textAlign: 'center', paddingVertical: 20 }}>
+                    <Text style={{ color: colors.textMuted, fontSize: 13, textAlign: 'center', paddingVertical: 20 }}>
                       Bu listede ürün bulunmuyor.
                     </Text>
+                  ) : selectedListDetail.kaynak === 'gemini' || selectedListDetail.items.some((i) => i.kategori || i.tahmini_fiyat) ? (
+                    <View style={{ gap: 8,paddingBottom:25 }}>
+                      {selectedListDetail.items.map((item, idx) => (
+                        <View
+                          key={item.idIngredient || `item_${idx}`}
+                          style={{
+                            backgroundColor: colors.cardHighlight,
+                            borderRadius: 14,
+                            paddingHorizontal: 14,
+                            paddingVertical: 12,
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            borderWidth: 1,
+                            borderColor: colors.cardBorder,
+                          }}
+                        >
+                          <View style={{ flex: 1, paddingRight: 10 }}>
+                            <Text style={{ color: colors.textPrimary, fontSize: 14, fontWeight: '700', marginBottom: 4 }}>
+                              {item.strIngredient}
+                            </Text>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                              {item.kategori && (
+                                <View
+                                  style={{
+                                    backgroundColor: 'rgba(255, 107, 53, 0.12)',
+                                    paddingHorizontal: 7,
+                                    paddingVertical: 2,
+                                    borderRadius: 6,
+                                    borderWidth: 1,
+                                    borderColor: 'rgba(255, 107, 53, 0.3)',
+                                  }}
+                                >
+                                  <Text style={{ color: '#FF6B35', fontSize: 10, fontWeight: '700' }}>
+                                    {item.kategori.replace('_', ' ').toUpperCase()}
+                                  </Text>
+                                </View>
+                              )}
+                              {item.tahmini_fiyat && (
+                                <View
+                                  style={{
+                                    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                                    paddingHorizontal: 7,
+                                    paddingVertical: 2,
+                                    borderRadius: 6,
+                                    borderWidth: 1,
+                                    borderColor: 'rgba(16, 185, 129, 0.3)',
+                                    flexDirection: 'row',
+                                    alignItems: 'center',
+                                    gap: 3,
+                                  }}
+                                >
+                                  <Ionicons name="pricetag-outline" size={10} color="#10B981" />
+                                  <Text style={{ color: '#10B981', fontSize: 10, fontWeight: '700' }}>
+                                    {item.tahmini_fiyat}
+                                  </Text>
+                                </View>
+                              )}
+                            </View>
+                          </View>
+                          <Ionicons name="checkmark-circle" size={22} color="#10B981" />
+                        </View>
+                      ))}
+                    </View>
                   ) : (
                     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
                       {selectedListDetail.items.map((item) => {
@@ -852,12 +998,12 @@ export default function TabShoppingScreen() {
                             key={item.idIngredient}
                             style={{
                               width: '31%',
-                              backgroundColor: 'rgba(30, 41, 59, 0.7)',
+                              backgroundColor: colors.cardHighlight,
                               borderRadius: 14,
                               padding: 10,
                               alignItems: 'center',
                               borderWidth: 1,
-                              borderColor: 'rgba(71, 85, 105, 0.3)',
+                              borderColor: colors.cardBorder,
                             }}
                           >
                             <Image
@@ -867,7 +1013,7 @@ export default function TabShoppingScreen() {
                             />
                             <Text
                               numberOfLines={2}
-                              style={{ color: '#F1F5F9', fontSize: 11, fontWeight: '600', textAlign: 'center' }}
+                              style={{ color: colors.textPrimary, fontSize: 11, fontWeight: '600', textAlign: 'center' }}
                             >
                               {item.strIngredient}
                             </Text>

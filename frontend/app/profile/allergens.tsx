@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -12,30 +12,29 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import IngredientCard, { IngredientItem } from '@/components/IngredientCard';
+import { useAllergens, UserAllergen } from '@/hooks/useAllergens';
+import { useAlert } from '@/contexts/AlertContext';
+import { useTheme } from '@/contexts/ThemeContext';
 
 // ─────────────── Sabitler ───────────────
-const ALLERGENS_STORAGE_KEY = '@allergens_v1';
 const API_INGREDIENTS = 'https://www.themealdb.com/api/json/v1/1/list.php?i=list';
-
-export interface SavedAllergen {
-  idIngredient: string;
-  strIngredient: string;
-}
 
 // ─────────────── Alerjen Kartı (Kaydedilmiş) ───────────────
 function AllergenCard({
   allergen,
   onRemove,
 }: {
-  allergen: SavedAllergen;
-  onRemove: (id: string) => void;
+  allergen: UserAllergen;
+  onRemove: (id: number) => void;
 }) {
-  const imageUrl = `https://www.themealdb.com/images/ingredients/${encodeURIComponent(
-    allergen.strIngredient
-  )}-Small.png`;
+  // image_url varsa onu kullan, yoksa allergen_name'den oluştur
+  const imageUrl =
+    allergen.image_url ||
+    `https://www.themealdb.com/images/ingredients/${encodeURIComponent(
+      allergen.allergen_name
+    )}-Small.png`;
 
   return (
     <View
@@ -53,7 +52,7 @@ function AllergenCard({
     >
       {/* Sil Butonu */}
       <TouchableOpacity
-        onPress={() => onRemove(allergen.idIngredient)}
+        onPress={() => onRemove(allergen.id)}
         style={{
           position: 'absolute',
           top: 5,
@@ -87,7 +86,7 @@ function AllergenCard({
           lineHeight: 14,
         }}
       >
-        {allergen.strIngredient}
+        {allergen.allergen_name}
       </Text>
     </View>
   );
@@ -95,39 +94,20 @@ function AllergenCard({
 
 // ─────────────── Ana Ekran ───────────────
 export default function AllergensScreen() {
-  const [allergens, setAllergens] = useState<SavedAllergen[]>([]);
+  const { colors } = useTheme();
+  // ✅ Supabase hook'u — AsyncStorage yerine
+  const { allergens, loading: allergensLoading, addAllergens, removeAllergen } = useAllergens();
+  const { showAlert } = useAlert();
+
   const [modalVisible, setModalVisible] = useState(false);
   const [allIngredients, setAllIngredients] = useState<IngredientItem[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selected, setSelected] = useState<SavedAllergen[]>([]);
+  const [selected, setSelected] = useState<IngredientItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [visibleCount, setVisibleCount] = useState(15);
 
-  // ── AsyncStorage Yükle ──
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const data = await AsyncStorage.getItem(ALLERGENS_STORAGE_KEY);
-        if (data) setAllergens(JSON.parse(data));
-      } catch (err) {
-        console.error('Alerjen yükleme hatası:', err);
-      }
-    };
-    load();
-  }, []);
-
-  // ── AsyncStorage Kaydet ──
-  const saveAllergens = async (list: SavedAllergen[]) => {
-    try {
-      await AsyncStorage.setItem(ALLERGENS_STORAGE_KEY, JSON.stringify(list));
-      setAllergens(list);
-    } catch (err) {
-      console.error('Alerjen kaydetme hatası:', err);
-    }
-  };
-
-  // ── API: Tüm İçerikleri Çek ──
+  // ── API: Tüm İçerikleri Çek (TheMealDB — sadece seçim modalı için) ──
   const fetchIngredients = async () => {
     if (allIngredients.length > 0) return;
     try {
@@ -151,40 +131,59 @@ export default function AllergensScreen() {
     fetchIngredients();
   };
 
-  // ── Seçim Toggle ──
-  const handleToggle = useCallback((item: IngredientItem) => {
-    setSelected((prev) => {
-      const exists = prev.some((a) => a.idIngredient === item.idIngredient);
-      if (exists) return prev.filter((a) => a.idIngredient !== item.idIngredient);
-      return [...prev, { idIngredient: item.idIngredient, strIngredient: item.strIngredient }];
-    });
-  }, []);
+  const toggleSelect = (item: IngredientItem) => {
+    if (selected.some((i) => i.idIngredient === item.idIngredient)) {
+      setSelected(selected.filter((i) => i.idIngredient !== item.idIngredient));
+    } else {
+      setSelected([...selected, item]);
+    }
+  };
 
-  // ── Kaydet ──
+  // ── Kaydet → Supabase ──
   const handleSave = async () => {
-    if (selected.length === 0) return;
+    if (selected.length === 0) {
+      setModalVisible(false);
+      return;
+    }
+
     setSaving(true);
-    const existingIds = new Set(allergens.map((a) => a.idIngredient));
-    const newOnes = selected.filter((s) => !existingIds.has(s.idIngredient));
-    const merged = [...allergens, ...newOnes];
-    await saveAllergens(merged);
+    const existingNames = new Set(allergens.map((a) => a.allergen_name.toLowerCase()));
+    const newOnes = selected.filter(
+      (item) => !existingNames.has(item.strIngredient.toLowerCase())
+    );
+
+    if (newOnes.length > 0) {
+      const items = newOnes.map((item) => ({
+        name: item.strIngredient,
+        externalId: item.idIngredient,
+        imageUrl: `https://www.themealdb.com/images/ingredients/${encodeURIComponent(
+          item.strIngredient
+        )}-Small.png`,
+      }));
+
+      const { error } = await addAllergens(items);
+      if (error) {
+        showAlert({ title: 'Hata', message: error, type: 'error' });
+      }
+    }
+
     setSaving(false);
     setModalVisible(false);
   };
 
-  // ── Sil ──
-  const handleRemove = (id: string) => {
-    Alert.alert('Alerjeni Kaldır', 'Bu alerjeni listeden kaldırmak istediğinize emin misiniz?', [
-      { text: 'İptal', style: 'cancel' },
-      {
-        text: 'Kaldır',
-        style: 'destructive',
-        onPress: async () => {
-          const updated = allergens.filter((a) => a.idIngredient !== id);
-          await saveAllergens(updated);
-        },
+  // ── Sil → Supabase ──
+  const handleRemove = (id: number) => {
+    showAlert({
+      title: 'Alerjeni Kaldır',
+      message: 'Bu alerjeni listeden kaldırmak istediğinize emin misiniz?',
+      type: 'confirm',
+      confirmText: 'Kaldır',
+      cancelText: 'İptal',
+      onConfirm: async () => {
+        const { error } = await removeAllergen(id);
+        if (error) showAlert({ title: 'Hata', message: error, type: 'error' });
       },
-    ]);
+    });
   };
 
   // ── Filtreleme ──
@@ -199,10 +198,22 @@ export default function AllergensScreen() {
     [filteredIngredients, visibleCount]
   );
 
+  // ── İlk yükleme ──
+  if (allergensLoading) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#F59E0B" />
+        <Text style={{ color: colors.textMuted, fontSize: 13, marginTop: 12, fontWeight: '600' }}>
+          Alerjenler yükleniyor...
+        </Text>
+      </SafeAreaView>
+    );
+  }
+
   // ─────────────── RENDER ───────────────
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#0F172A' }} edges={['bottom']}>
-      <StatusBar barStyle="light-content" />
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['bottom']}>
+      <StatusBar barStyle={colors.statusBar} />
 
       {/* İçerik */}
       {allergens.length === 0 ? (
@@ -334,7 +345,7 @@ export default function AllergensScreen() {
           {/* Grid */}
           <FlatList
             data={allergens}
-            keyExtractor={(item) => item.idIngredient}
+            keyExtractor={(item) => String(item.id)}
             numColumns={3}
             columnWrapperStyle={{ justifyContent: 'space-between', paddingHorizontal: 16 }}
             contentContainerStyle={{ paddingBottom: 24 }}
@@ -442,7 +453,7 @@ export default function AllergensScreen() {
                 <IngredientCard
                   ingredient={item}
                   isSelected={selected.some((s) => s.idIngredient === item.idIngredient)}
-                  onToggle={handleToggle}
+                  onToggle={toggleSelect}
                 />
               )}
               onEndReached={() => {
@@ -492,4 +503,4 @@ export default function AllergensScreen() {
       </Modal>
     </SafeAreaView>
   );
-}
+} 
