@@ -94,7 +94,7 @@ def ai_yanit(prompt: str) -> str:
         raise HTTPException(status_code=503, detail="AI servisi şu an kullanılamıyor. GEMINI_API_KEY kontrol edin.")
     try:
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
+            model="gemini-3.6-flash",
             contents=prompt
         )
         return response.text
@@ -106,7 +106,7 @@ def ai_yanit_gorsel(prompt: str, image_bytes: bytes, mime_type: str = "image/jpe
         raise HTTPException(status_code=503, detail="AI servisi şu an kullanılamıyor. GEMINI_API_KEY kontrol edin.")
     try:
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
+            model="gemini-3.6-flash",
             contents=[
                 prompt,
                 types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
