@@ -316,3 +316,118 @@ Kullanıcı girişi, buzdolabı fotoğrafı çekme, malzeme tespiti ve düzenlem
 - Backend/frontend klasör ayrımı yapılacak
 
 </details>
+
+<details>
+<summary><b>Sprint 3 (Detayları Görmek İçin Tıklayın)</b></summary>
+<br>
+
+## Sprint Notları
+
+- `/tarif-oner` endpoint'i RAG mimarisiyle geliştirildi: veritabanından bulunan gerçek tarifler artık Gemini 2.5 Flash ile zenginleştiriliyor (eksik alanlar dolduruluyor), hem veritabanı hem Gemini kaynaklı tarifler artık **aynı yapılandırılmış JSON formatında** dönüyor
+- Malzeme adı normalizasyonu tamamlandı: frontend'den miktarlı gelen malzeme isimleri (örn. "kıyma 500 gram") artık veritabanı eşleşmesi için otomatik temizleniyor, RAG sisteminin isabet oranı arttı
+- `/tarif-oner`'a öğün (kahvaltı/öğle/akşam/ara öğün), diyet kısıtlaması (vejetaryen, vegan, glutensiz, ketojenik) ve alerjen filtreleme özellikleri eklendi — alerjen kontrolü hem veritabanı sorgusunda (kesin filtre) hem AI prompt'unda (ek güvenlik katmanı) uygulanıyor
+- ChromaDB ile kullanıcı hafızası sistemi kuruldu: kullanıcının favorilediği/kullandığı tarifler hafızaya kaydediliyor, sonraki `/tarif-oner` çağrılarında geçmiş tercihler dikkate alınarak öneriler kişiselleştiriliyor
+- Favoriler sistemi eklendi: kullanıcılar tarifleri kalıcı olarak Supabase'e kaydedebiliyor (`/favori-ekle`, `/favoriler/{id}`, `/favori-sil/{id}`)
+- `/makro-hesapla` endpoint'i JSON formatına çevrildi ve gerçek fotoğraf desteği eklendi (Gemini Vision ile yemek fotoğrafından besin değeri analizi)
+- Makro/kalori takibi Supabase'e bağlandı: `meal_logs` tablosu genişletildi, kullanıcının günlük tükettiği öğünler kalıcı olarak kaydedilip profil sayfasındaki dairesel sayaç ve makro barları dinamik olarak besleniyor (Mifflin-St Jeor formülüyle hesaplanan hedeflere göre)
+- Frontend branch'i (`feature/kitchen-frontend`) main'e merge edildi, login/auth ve profil sayfası artık ana koda dahil
+- Proje yapısı `backend/` ve `frontend/` olarak iki ayrı klasöre bölündü, Render deploy ayarları buna göre güncellendi
+
+## Sprint İçinde Tamamlanması Tahmin Edilen Puan
+
+**100 Puan**
+
+## Backlog Dağıtma Mantığı
+
+| Görev                                                                                    | Puan    |
+| ---------------------------------------------------------------------------------------- | ------- |
+| Frontend branch'inin main'e merge edilmesi                                               | 15      |
+| RAG mimarisi ile `/tarif-oner` geliştirmesi (format birleştirme, malzeme normalizasyonu) | 20      |
+| Diyet, öğün, alerjen filtreleme özellikleri                                              | 15      |
+| LangChain/ChromaDB ile kullanıcı hafızası ve favoriler sistemi                           | 20      |
+| Makro/kalori takibinin Supabase'e bağlanması                                             | 15      |
+| Backend/frontend klasör yapısının düzenlenmesi                                           | 10      |
+| Market listesi entegrasyonu ve son testler                                               | 5       |
+| **Toplam**                                                                               | **100** |
+
+## Daily Scrum
+
+- [27 Temmuz 2026 - Toplantı Notu](Project%20Files/Sprint3/Sprint3_Daily_Scrum/sprint3_27Temmuz.md)
+- [31 Temmuz 2026 - Toplantı Notu](Project%20Files/Sprint3/Sprint3_Daily_Scrum/sprint3_31Temmuz.md)
+- [2 Ağustos 2026 - Toplantı Notu](Project%20Files/Sprint3/Sprint3_Daily_Scrum/sprint3_2Ağustos.md)
+
+## Sprint Board Update
+
+![ClickUp Sprint Board](Project%20Files/Sprint3/Sprint3_PM/clickup_board.jpeg)
+![ClickUp Gantt Scheme](Project%20Files/Sprint3/Sprint3_PM/clickup_gantt1.jpeg)
+![ClickUp Gantt Scheme](Project%20Files/Sprint3/Sprint3_PM/clickup_gantt2.jpeg)
+
+## Ürün Durumu
+
+### Tarif Önerisi — RAG + Kişiselleştirme (Diyet, Alerjen, Öğün, Hafıza)
+
+![Veritabanından RAG ile Zenginleştirilmiş Tarif](Project%20Files/Sprint3/Sprint3_Backend_ss/swagger_tarif_oner_rag.jpeg)
+
+### Eksik Listesi Oluşturma
+
+![Eksik Listesi Backend](Project%20Files/Sprint3/Sprint3_Backend_ss/swagger_eksik_listesi.jpeg)
+![Eksik Listesi Frontend](Project%20Files/Sprint3/Sprint3_App_ss/eksik_listesi_frontend.png)
+
+### Favoriler Sistemi
+
+![Favori Ekleme / Silme](Project%20Files/Sprint3/Sprint3_Backend_ss/favori_ekle_sil_backend.jpeg)
+![Favorileri Listeleme](Project%20Files/Sprint3/Sprint3_App_ss/favori_listeleme_frontend.png)
+
+### Makro/Kalori Takibi — Profil Sayfası Entegrasyonu
+
+![Dinamik Kalori Sayacı](Project%20Files/Sprint3/Sprint3_App_ss/dinamik_kalori_sayaci.png)
+![Sağlığım Sayfası Makro Barları](Project%20Files/Sprint3/Sprint3_App_ss/saglik_sayfasi.png)
+
+### Canlı Backend
+
+🔗 [https://yzta-bootcamp-136.onrender.com/docs](https://yzta-bootcamp-136.onrender.com/docs)
+
+## Sprint Review
+
+**Sprint 3 Tarihleri:** 20 Temmuz – 2 Ağustos 2026
+
+**Katılımcılar:** Ömer Faruk Gülşen, Yüsra Yalavuz, Fatma Çelik, Demir Demirkaya, Seyfi Berk Yılmaz
+
+### Tamamlanan İşler ✅
+
+- `/tarif-oner` RAG mimarisiyle yeniden yazıldı: veritabanı ve Gemini kaynaklı tarifler artık tutarlı, tek bir JSON formatında dönüyor
+- Malzeme adı normalizasyonu ile veritabanı eşleşme oranı iyileştirildi
+- Diyet kısıtlaması, öğün ve alerjen filtreleme özellikleri eklendi (çift katmanlı güvenlik: veritabanı + AI prompt)
+- ChromaDB ile kullanıcı hafızası ve favoriler sistemi kuruldu, `/tarif-oner` artık kullanıcının geçmiş tercihlerini dikkate alıyor
+- Supabase'de `favori_tarifler` tablosu ve RLS politikaları oluşturuldu
+- `/makro-hesapla` JSON formatına çevrildi, gerçek fotoğraf (Vision API) desteği eklendi
+- Makro/kalori takibi Supabase'e bağlandı, profil sayfasındaki sayaçlar artık gerçek kullanıcı verisiyle dinamik çalışıyor
+- Frontend branch'i main'e merge edildi, proje backend/frontend olarak klasörlere ayrıldı
+
+### Sprint Sonuna Taşınan / Devam Eden İşler 🔄
+
+- `/market-listesi` endpoint'inin frontend'deki "Eksik Listesi" ekranına bağlanması
+- Final deploy doğrulaması ve demo videosunun güncellenmesi
+
+## Sprint Retrospective
+
+### Ne İyi Gitti? ✅
+
+- Backend/frontend klasör ayrımı ve frontend merge'i sorunsuz tamamlandı
+- RAG mimarisi ve hafıza sistemi planlanandan kapsamlı şekilde hayata geçirildi
+- Makro takibinin Supabase'e bağlanması, projenin "kişisel profil ve hedef takibi" vaadini gerçek anlamda karşıladı
+- Favoriler sistemi hem Supabase hem ChromaDB'yi birlikte kullanan sağlam bir mimariyle kuruldu
+
+### Ne Kötü Gitti? ❌
+
+- Gemini API'nin ücretsiz katman günlük kotası test sürecinde doldu, bir süre bekleme/planlama gerekti
+- Klasör yeniden yapılandırması sonrası Render'ın Root Directory ayarının güncellenmesi unutulma riski taşıdı
+- Yeni kullanıcı kayıtlarında `profiles` tablosuna otomatik satır eklenmemesi, favori ekleme sırasında foreign key hatasına yol açtı
+
+### Sprint Sonrası İçin Öneriler 🔧
+
+- Gemini API için faturalandırma veya kota yönetimi süreci netleştirilmeli
+- Supabase'de `auth.users` → `profiles` otomatik senkronizasyonu için trigger eklenmeli
+- ChromaDB'nin Render'ın kalıcı olmayan dosya sisteminde her deploy'da sıfırlanma riski, kalıcı depolama çözümüyle ele alınmalı
+
+</details>
